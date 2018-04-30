@@ -37,16 +37,18 @@ def main(misc_taxonomy, family_euks_faa):
                     continue
                 else:
                     exclude.append(toks[1])
-    with open(family_euks_faa) as fh:
+    with open(family_euks_faa) as fh, tqdm(desc="Records processed") as pbar:
         seen_and_excluded = 0
         exclude_sequence = False
-        for line in tqdm(fh):
+        for line in fh:
             line = line.strip("\r\n")
             if line.startswith(">"):
+                pbar.update()
                 exclude_sequence = False
                 for code in exclude:
                     if line.startswith(">%s" % code):
                         exclude_sequence = True
+                        break
                 if not exclude_sequence:
                     print(line)
                 else:
