@@ -275,7 +275,8 @@ rule combine_sample_output:
                     tax_classifications[toks[1]] = [toks[3], toks[7]]
         with open(diamond_hits) as ifh, open(outtable, "w") as ofh:
             print("read_id", "aa_percent_id", "aa_alignment_length", "ko",
-                "product", "ec", "tax_alignment_length", "tax_classification",
+                "product", "ec", "kaiju_alignment_length",
+                "kaiju_classification", "lca_classification",
                 sep="\t", file=ofh)
             for seqid, seqgroup in groupby(ifh, key=lambda i: i.partition("\t")[0]):
                 for line in seqgroup:
@@ -288,6 +289,8 @@ rule combine_sample_output:
                         ko = ""
                         product = ""
                         ec = ""
+                        # TODO
+                        lca_classification = "k__?;p__?;c__?;o__?;f__?;g__?;s__?"
                     else:
                         try:
                             ko = gene_map[toks[1]]
@@ -300,9 +303,11 @@ rule combine_sample_output:
                             product = ""
                         aa_percent_id = toks[2]
                         aa_alignment_length = toks[3]
+                        # TODO
+                        lca_classification = your_lca_method()
                     # get taxonomy; this should never cause a KeyError
                     tax_alignment_length, tax_classification = tax_classifications[read_id]
                     print(read_id, aa_percent_id, aa_alignment_length, ko, product,
-                        ec, tax_alignment_length, tax_classification, sep="\t", file=ofh)
+                        ec, tax_alignment_length, tax_classification, lca_classification, sep="\t", file=ofh)
                     # just print the best HSP
                     break
