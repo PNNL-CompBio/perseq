@@ -30,6 +30,7 @@ def get_kaiju_db_dir(config):
 
 
 KAIJUDB = get_kaiju_db_dir(config)
+CONDAENV = "environment.yml"
 
 
 rule all:
@@ -38,27 +39,29 @@ rule all:
 
 
 rule deduplicate_reads:
-        input:
-            r1 = lambda wildcards: config["samples"][wildcards.sample][0],
-            r2 = lambda wildcards: config["samples"][wildcards.sample][1]
-        output:
-            r1 = "quality_control/{sample}_00_deduplicate_R1.fastq.gz",
-            r2 = "quality_control/{sample}_00_deduplicate_R2.fastq.gz"
-        log:
-            "logs/{sample}_deduplicate_reads.log"
-        # conda:
-        #     "%s/required_packages.yaml" % CONDAENV
-        threads:
-            config.get("threads", 1)
-        resources:
-            java_mem = config.get("java_mem", 60)
-        shell:
-            """
-            clumpify.sh in={input.r1} in2={input.r2} \
-                out={output.r1} out2={output.r2} \
-                dedupe=t optical=t threads={threads} \
-                -Xmx{resources.java_mem}G 2> {log}
-            """
+    input:
+        r1 = lambda wildcards: config["samples"][wildcards.sample][0],
+        r2 = lambda wildcards: config["samples"][wildcards.sample][1]
+    output:
+        r1 = "quality_control/{sample}_00_deduplicate_R1.fastq.gz",
+        r2 = "quality_control/{sample}_00_deduplicate_R2.fastq.gz"
+    log:
+        "logs/{sample}_deduplicate_reads.log"
+    # conda:
+    #     "%s/required_packages.yaml" % CONDAENV
+    threads:
+        config.get("threads", 1)
+    resources:
+        java_mem = config.get("java_mem", 60)
+    conda:
+        CONDAENV
+    shell:
+        """
+        clumpify.sh in={input.r1} in2={input.r2} \
+            out={output.r1} out2={output.r2} \
+            dedupe=t optical=t threads={threads} \
+            -Xmx{resources.java_mem}G 2> {log}
+        """
 
 
 # rule apply_quality_filter:
@@ -104,6 +107,8 @@ rule build_decontamination_db:
         java_mem = config.get("java_mem", 60)
     threads:
         config.get("threads", 1)
+    conda:
+        CONDAENV
     shell:
         """
         bbsplit.sh -Xmx{resources.java_mem}G {params.refs_in} threads={threads} k={params.k} local=t
@@ -132,7 +137,9 @@ rule run_decontamination:
     threads:
         config.get("threads", 1)
     resources:
-        java_mem = config.get("java_mem", 60),
+        java_mem = config.get("java_mem", 60)
+    conda:
+        CONDAENV
     shell:
         """
         bbsplit.sh in1={input.r1} in2={input.r2} \
@@ -159,7 +166,9 @@ rule merge_sequences:
     threads:
         config.get("threads", 1)
     resources:
-        java_mem = config.get("java_mem", 60),
+        java_mem = config.get("java_mem", 60)
+    conda:
+        CONDAENV
     shell:
         """
         bbmerge.sh threads={threads} k=60 extend2=60 iterations=5 \
@@ -179,6 +188,8 @@ rule run_taxonomic_classification:
         evalue = config.get("kaiju_evalue", 0.05)
     threads:
         config.get("threads", 1)
+    conda:
+        CONDAENV
     shell:
         """
         kaiju -t {KAIJUDB}/nodes.dmp \
@@ -193,6 +204,8 @@ rule add_full_taxonomy:
         "kaiju/{sample}_aln.txt"
     output:
         "kaiju/{sample}_aln_names.txt"
+    conda:
+        CONDAENV
     shell:
         """
         addTaxonNames -t {KAIJUDB}/nodes.dmp -n {KAIJUDB}/names.dmp \
@@ -208,6 +221,8 @@ rule build_diamond_index:
         config["diamonddb"] + ".dmnd"
     threads:
         config.get("threads", 1)
+    conda:
+        CONDAENV
     shell:
         """
         diamond makedb --in {input} --threads {threads} --db {output}
@@ -222,6 +237,8 @@ rule run_functional_classification:
         "diamond/{sample}_aln.txt"
     threads:
         config.get("threads", 1)
+    conda:
+        CONDAENV
     shell:
         """
         diamond blastx --threads {threads} --db {input.db} \
