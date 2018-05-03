@@ -29,6 +29,67 @@ def get_kaiju_db_dir(config):
     return db_dir
 
 
+def get_samples_from_dir(config):
+    """
+    Key assumptions:
+        + names still end in .fastq and they are gzip compressed (.fastq.gz)
+        + files are paired-end
+        + names end with _R?_001.fastq.gz or _R?.fastq.gz
+        + names start with SAMPLE_ and everything before the first underscore maintains a unique set of sample names
+    """
+    # groups = {key: set(value) for key, value in groupby(sorted(mylist, key = lambda e: os.path.splitext(e)[0]), key = lambda e: os.path.splitext(e)[0])}
+    fastq_dir = config.get("data")
+    if not fastq_dir:
+        logger.error("'data' dir with FASTQs has not been set; pass --config data=/path")
+        sys.exit(1)
+
+    logger.info("Finding samples in %s" % fastq_dir)
+    samples = dict()
+    seen = set()
+    for fname in os.listdir(fastq_dir):
+        if not ".fastq" in fname and not ".fq" in fname: continue
+        if not "_R1" in fname and not "_r1" in fname: continue
+        fq_path = os.path.join(fastq_dir, fname)
+        sample_id = fname.partition(".fastq")[0]
+        if ".fq" in sample_id:
+            sample_id = fname.partition(".fq")[0]
+        sample_id = sample_id.replace("_R1_001").replace("_R1", "").replace("_r1", "")
+        sample_id = sample_id.replace(".", "_").replace(" ", "_").replace("-", "_")
+
+        # sample ID after rename
+        if sample_id in seen:
+            # but FASTQ has yet to be added
+            # if one sample has a dash and another an underscore, this
+            # is a case where we should warn the user that this file
+            # is being skipped
+            if not fq_path in seen:
+                logger.warning("Duplicate sample %s was found after renaming; skipping..." % sample_id)
+            continue
+        # simple replace of right-most read index designator
+        if fname.find("_R1") > fname.find("_r1"):
+            r2 = os.path.join(fastq_dir, "_R2".join(fname.rsplit("_R1", 1)))
+        else:
+            r2 = os.path.join(fastq_dir, "_r2".join(fname.rsplit("_r1", 1)))
+        # not paired-end?
+        if not os.path.exists(r2):
+            logger.error("File [%s] for %s was not found. Exiting." % (r2, sample_id))
+            sys.exit(1)
+        seen.add(fq_path)
+        seen.add(sample_id)
+        samples[sample_id] = {"r1": fq_path, "r2": r2}
+
+    if len(samples) == 0:
+        logger.error("No samples were found for processing.")
+        sys.exit(1)
+    logger.info("Found %d samples for processing:\n" % len(samples))
+    samples_str = ""
+    for k, v in samples.items():
+        samples_str += "%s: %s; %s\n" % (k, v["r1"], v["r2"])
+    logger.info(samples_str)
+    return samples
+
+
+# SAMPLES = get_samples_from_dir(config)
 KAIJUDB = get_kaiju_db_dir(config)
 CONDAENV = "environment.yml"
 
