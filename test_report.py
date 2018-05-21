@@ -11,8 +11,62 @@ PLOTLY_PARAMS = dict(
     include_plotlyjs=False, show_link=False, output_type="div", image_height=700
 )
 
+def parse_tables(path):
+    final={}
+    for f in os.listdir(path):
+        f = os.path.join(path, f)
 
-def parse_log_files(path, expect_one_value=True):
+        # print(f)
+        if f.endswith("_decontamination_by_reference.log"): continue
+        if f.endswith("_deduplicate_reads.log"): continue
+        sample = os.path.basename(f).partition("_")[0]
+        #print(sample)
+        #keyword=key_val[file_type]
+        #print(keyword)
+        file=open(f)
+        #print(f)
+        counter={'KO Assigned':0,'Taxonomy Assigned':0,'Both':0}
+        #n=0
+        #next(f)
+        for line in file:
+            #print(counter)
+            line=line.strip().split('\t')
+            if len(line)<8:
+                continue
+            else:
+                #print(line[3])
+                if line[3].startswith('ko:'):
+                    #print('ko present')
+                    #print(line[3])
+                    counter['KO Assigned']+=1
+
+                #print(line[7])
+                if not line[7] == '\t':
+                    #print(line[7])
+                    counter['Taxonomy Assigned']+=1
+
+                    #print('taxa present')
+                if line[3].startswith('ko:') and line[7] != '\t':
+                    #print(line[3],line[7])
+                    counter['Both']+=1
+
+                #tax_class=line[7]
+                #counter[ko]+=1
+            # n+=1
+            # if n > 16:
+            #     #print(line)
+            #     #print(ko,tax_class)
+            #
+            #     break
+            # else:
+            #     print(n)
+            #     #print(counter)
+            #     continue
+        final[sample]=counter
+    final_frame=pd.DataFrame.from_dict(final,orient='index')
+    return(final_frame)
+
+def parse_log_files(path, tables_path,expect_one_value=True):
 
     key_val = {
         "merge_sequences.log": "Input:",
@@ -31,13 +85,13 @@ def parse_log_files(path, expect_one_value=True):
         sample = os.path.basename(f).partition("_")[0]
         ### NEED TO FIND A WAY TO DO THIS THAT IS NOT HARDCODED
         if not sample in df_table:
-            df_table[sample] = [0, 1, 2, 3, 4]
+            df_table[sample] = [0, 1, 2, 3, 4,5]
             if sample == "t140m":
-                df_table[sample][0] = "2707038"
+                df_table[sample][0] = "5414076"
             elif sample == "t164m":
-                df_table[sample][0] = "8276745"
+                df_table[sample][0] = "16553490"
             elif sample == "t174m":
-                df_table[sample][0] = "4238294"
+                df_table[sample][0] = "8476588"
         else:
             pass
         file_type = os.path.basename(f).partition("_")[2]
@@ -66,23 +120,27 @@ def parse_log_files(path, expect_one_value=True):
                 out = content[pos:].split()[1]
                 df_table[sample][2] = out
                 keyword = "Joined:"
-
                 pos = content.find(keyword)
                 out = content[pos:].split()[1]
                 df_table[sample][3] = out
                 out = content[pos:].split()[2]
                 df_table[sample][4] = out
+                keyword='50th percentile:'
+                out=content[pos:].split()[2]
+                df_table[sample][5]=out
 
             else:
                 out = content[pos:].split()[1:]
                 df_table[sample][2] = out
                 keyword = "Joined:"
-
                 pos = content.find(keyword)
                 out = content[pos:].split()[1]
                 df_table[sample][3] = out
                 out = content[pos:].split()[2]
                 df_table[sample][4] = out
+                keyword='50th percentile:'
+                out=content[pos:].split()[2]
+                df_table[sample][5]=out
         elif keyword == "Reads Used:":  # the deduplication file(ignore?)
             if expect_one_value:
                 out = content[pos:].split()[2]
@@ -92,15 +150,27 @@ def parse_log_files(path, expect_one_value=True):
                 out = content[pos:].split()[2:]
                 df_table[sample][1] = out
         # print(df_table)
+    #     tables=parse_tables(path_files)
+    #
+    # final=pd.DataFrame.from_dict(df_table, orient='index')
+    # final.columns=['Decontamination','Dedup','Merged']
+    # log_tables=final.merge(tables,left_index=True,right_index=True)
+    # html_tbl=log_tables.to_html()
+    # return html_tbl
+
+
+    final_tables=parse_tables(tables_path)
     final = pd.DataFrame.from_dict(df_table, orient="index")
     final.columns = [
-        "Initial \nRead Count",
+        "Initial \nRead Count\n(R1 and R2)",
         "Decontamination",
         "Deduplication",
         "Merged",
         "Pairs Joined",
+        "Average Insert Size"
     ]
-    html_tbl = final.to_html().replace("\n", "\n" + 10 * " ")
+    log_tables=final.merge(final_tables,left_index=True,right_index=True)
+    html_tbl = log_tables.to_html().replace("\n", "\n" + 10 * " ")
     return html_tbl
 
 
@@ -492,7 +562,7 @@ def make_plots(p_done, c_done, o_done, y_axis_title, variable):
     return fig
 
 
-def main(path_to_files, report_out, path_to_log_files):
+def main(path_to_files, report_out, path_to_log_files,path_to_tables_files):
     tax_level = "taxon"
     p_done, p_perc_done, c_done, c_perc_done, o_done, o_perc_done = df_by_merge(
         path_to_files, tax_level
@@ -522,7 +592,7 @@ def main(path_to_files, report_out, path_to_log_files):
                 output_type="div",
                 image_height=700,
             )
-    html_tbl = parse_log_files(path_to_log_files)
+    html_tbl = parse_log_files(path_to_log_files,path_to_tables_files)
     report_str = """
 
 .. raw:: html
@@ -585,7 +655,8 @@ if __name__ == "__main__":
     p = argparse.ArgumentParser()
     p.add_argument("--path_to_alignment_files")
     p.add_argument("--path_to_log_files")
+    p.add_argument("--path_to_tables_files")
     p.add_argument("--report-out")
 
     args = p.parse_args()
-    main(args.path_to_alignment_files, args.report_out, args.path_to_log_files)
+    main(args.path_to_alignment_files, args.report_out, args.path_to_log_files,args.path_to_tables_files)
