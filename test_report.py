@@ -27,7 +27,7 @@ def parse_tables(path):
         #print(f)
         counter={'KO Assigned':0,'Taxonomy Assigned':0,'Both':0}
         #n=0
-        #next(f)
+        next(file)
         for line in file:
             #print(counter)
             line=line.strip().split('\t')
