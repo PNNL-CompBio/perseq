@@ -443,15 +443,15 @@ def df_by_merge(path, tax_level):
         df3 = pd.DataFrame(data=clas, index=[0]).transpose()
         df3.reset_index(inplace=True)
         df3.columns = header
-        merged_phy_final = merged_phy.merge(df1, on=tax_level, how="outer")
-        merged_ord_final = merged_ord.merge(df2, on=tax_level, how="outer")
-        merged_class_final = merged_clas.merge(df3, on=tax_level, how="outer")
+        merged_phy = merged_phy.merge(df1, on=tax_level, how="outer")
+        merged_ord = merged_ord.merge(df2, on=tax_level, how="outer")
+        merged_class = merged_clas.merge(df3, on=tax_level, how="outer")
         # print(total_counts)
 
     # return merged_phy_final,merged_class_final,merged_order_final
-    p_done, p_perc_done = process_reads(tax_level, merged_phy_final, total_counts)
-    c_done, c_perc_done = process_reads(tax_level, merged_class_final, total_counts)
-    o_done, o_perc_done = process_reads(tax_level, merged_ord_final, total_counts)
+    p_done, p_perc_done = process_reads(tax_level, merged_phy, total_counts)
+    c_done, c_perc_done = process_reads(tax_level, merged_class, total_counts)
+    o_done, o_perc_done = process_reads(tax_level, merged_ord, total_counts)
     return p_done, p_perc_done, c_done, c_perc_done, o_done, o_perc_done
 
 
