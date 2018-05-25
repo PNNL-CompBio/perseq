@@ -278,8 +278,8 @@ rule all:
 
 rule deduplicate_reads:
     input:
-        r1 = lambda wildcards: config["samples"][wildcards.sample][0],
-        r2 = lambda wildcards: config["samples"][wildcards.sample][1]
+        r1 = lambda wildcards: config["samples"][wildcards.sample]["r1"],
+        r2 = lambda wildcards: config["samples"][wildcards.sample]["r2"]
     output:
         r1 = "quality_control/{sample}_00_deduplicate_R1.fastq.gz",
         r2 = "quality_control/{sample}_00_deduplicate_R2.fastq.gz"
