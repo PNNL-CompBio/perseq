@@ -262,10 +262,11 @@ def get_samples_from_dir(config):
     for k, v in samples.items():
         samples_str += "%s: %s; %s\n" % (k, v["r1"], v["r2"])
     logger.info(samples_str)
-    return samples
+    # add sample into config
+    config["samples"] = samples
 
 
-SAMPLES = get_samples_from_dir(config)
+get_samples_from_dir(config)
 KAIJUDB = get_kaiju_db_dir(config)
 CONDAENV = "environment.yml"
 
