@@ -268,7 +268,7 @@ def get_samples_from_dir(config):
 
 get_samples_from_dir(config)
 KAIJUDB = get_kaiju_db_dir(config)
-CONDAENV = "environment.yml"
+CONDAENV = "envs/environment.yml"
 
 
 rule all:
