@@ -293,6 +293,8 @@ rule deduplicate_reads:
         java_mem = config.get("java_mem", 60)
     conda:
         CONDAENV
+    group:
+        "sample_group"
     shell:
         """
         clumpify.sh in={input.r1} in2={input.r2} \
@@ -347,6 +349,8 @@ rule run_decontamination:
         java_mem = config.get("java_mem", 60)
     conda:
         CONDAENV
+    group:
+        "sample_group"
     shell:
         """
         bbsplit.sh in1={input.r1} in2={input.r2} \
@@ -376,6 +380,8 @@ rule merge_sequences:
         java_mem = config.get("java_mem", 60)
     conda:
         CONDAENV
+    group:
+        "sample_group"
     shell:
         """
         bbmerge.sh threads={threads} k=60 extend2=60 iterations=5 \
@@ -397,6 +403,8 @@ rule run_taxonomic_classification:
         config.get("threads", 1)
     conda:
         CONDAENV
+    group:
+        "sample_group"
     shell:
         """
         kaiju -t {KAIJUDB}/nodes.dmp \
@@ -413,6 +421,8 @@ rule add_full_taxonomy:
         "kaiju/{sample}_aln_names.txt"
     conda:
         CONDAENV
+    group:
+        "sample_group"
     shell:
         """
         addTaxonNames -t {KAIJUDB}/nodes.dmp -n {KAIJUDB}/names.dmp \
@@ -446,6 +456,8 @@ rule run_functional_classification:
         config.get("threads", 1)
     conda:
         CONDAENV
+    group:
+        "sample_group"
     shell:
         """
         diamond blastx --threads {threads} --db {input.db} \
