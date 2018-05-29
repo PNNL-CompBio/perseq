@@ -1,0 +1,10 @@
+data: /dtemp/emsls50064/data
+threads: 16
+java_mem: 96
+adapters: /dtemp/mscfcons/brow015/atlas_refs/adapters.fa
+phix: /dtemp/mscfcons/brow015/atlas_refs/phiX174_virus.fa
+rRNA: /dtemp/mscfcons/brow015/atlas_refs/silva_rfam_all_rRNAs.fa
+kaijudb: /dtemp/mscfcons/brow015/kaiju_refs/kaiju_nr_euk_viral
+diamonddb: /dtemp/mscfcons/brow015/perseq_refs/kegg_feukaryotes_gprokaryotes.faa
+gene2ko: /dtemp/mscfcons/brow015/perseq_refs/genes_ko.list.gz
+kodefs: /dtemp/mscfcons/brow015/perseq_refs/20180419_ko_list.txt
