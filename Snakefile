@@ -285,8 +285,6 @@ rule deduplicate_reads:
         r2 = "quality_control/{sample}_00_deduplicate_R2.fastq.gz"
     log:
         "logs/{sample}_deduplicate_reads.log"
-    # conda:
-    #     "%s/required_packages.yaml" % CONDAENV
     threads:
         config.get("threads", 1)
     resources:
@@ -307,8 +305,6 @@ rule deduplicate_reads:
 rule build_decontamination_db:
     output:
         "ref/genome/1/summary.txt"
-    # conda:
-    #     "%s/required_packages.yaml" % CONDAENV
     params:
         k = config.get("contaminant_kmer_length", 13),
         refs_in = " ".join("ref_%s=%s" % (n, fa) for n, fa in [["PhiX", config["phix"]], ["rRNA", config["rRNA"]]])
@@ -341,8 +337,6 @@ rule run_decontamination:
         k = config.get("contaminant_kmer_length", 15),
     log:
         "logs/{sample}_decontamination.log"
-    # conda:
-    #     "%s/required_packages.yaml" % CONDAENV
     threads:
         config.get("threads", 1)
     resources:
