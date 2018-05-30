@@ -1,4 +1,5 @@
 import argparse
+import csv
 import os
 from collections import Counter, defaultdict
 
@@ -19,56 +20,35 @@ STYLE = """
 """
 
 
-def gini(x, corr=False):
-    """Calculates Gini coefficient, the measure of inequality among values
-    of a frequency distribution. A Gini coefficient of zero expresses
-    perfect equality.
-
-    Port from ineq package in R::
-
-            > library(ineq)
-            > t <- c(1,2,6,7,8)
-            > Gini(t)
-            [1] 0.3166667
-            > Gini(t, corr=TRUE)
-            [1] 0.3958333
-
-    Args:
-        x (list): list or array of numbers
-        corr (Optional[bool]): finite sample correction
-
-    Returns:
-        float
-
-    >>> import numpy as np
-    >>> t = [1,2,6,7,8]
-    >>> gini(t) # doctest: +ELLIPSIS
-    0.3166...
-    >>> gini(t, corr=True) # doctest: +ELLIPSIS
-    0.3958...
-    >>> gini([]) # doctest: +ELLIPSIS
-    Traceback (most recent call last):
-     ...
-    AssertionError: x is empty
-    >>> t = [1,2,6,7,"A"]
-    >>> gini(t) # doctest: +ELLIPSIS
-    Traceback (most recent call last):
-     ...
-    ValueError: could not convert...
+def shannon_index(arr):
     """
-    x = np.array(x, dtype=float)
-    # filter out nan values as list is coming from merged dataframe
-    x = x[~ np.isnan(x)]
-    n = len(x)
-    assert n > 0, "x is empty"
-    x.sort(kind="mergesort")
-    G = sum(np.arange(1, n + 1) * x)
-    G = 2 * G / sum(x) - (n + 1)
-    if corr:
-        return G / (n - 1)
-
-    else:
-        return G / n
+    >>> counter = Counter({'28DPL6Y5ZLJQ': 20.0,
+             '5JJ3I433OD4D': 3.0,
+             '66ZS8L2FIBHE': 189.0,
+             '7W0EEVTOR5VV': 1.0,
+             '8NZCUXPEUIKE': 2.0,
+             '8XTZF810ENMI': 486.0,
+             'C8PP69BX09ZZ': 4.0,
+             'CMULPOCAFROS': 2.0,
+             'E3BOBZO5MIX3': 2.0,
+             'E517B87AQ3XM': 2.0,
+             'EUDVJH6XLSY3': 3.0,
+             'F7O31BBBUDCE': 2.0,
+             'JWWBB7Y2PTQ4': 2.0,
+             'JYKOAK2U228V': 3.0,
+             'NAMWMPHCUBJC': 2.0,
+             'O5N7ADO5K9I4': 3.0,
+             'P34M5UNS6P9B': 6.0,
+             'RLU5W9AMJHFT': 123.0,
+             'RMPWYKVRSXNL': 1.0,
+             'T13Z885J5HJ4': 2.0,
+             'TUK6CZH506C1': 2.0,
+             'ZX7LUKOMKLA4': 3.0})
+    >>> shannon_index(np.array(list(counter.values())))
+    1.32095...
+    """
+    total = sum(arr)
+    return -1 * sum([(x / total) * np.log(x / total) for x in arr if x > 0])
 
 
 def parse_classifications_for_taxonomy(path):
@@ -79,7 +59,10 @@ def parse_classifications_for_taxonomy(path):
     """
     logger.info("Parsing {}".format(path))
     # hardcoded tax levels :(
-    taxonomy_counter = {"order": Counter(), "class": Counter(), "phylum": Counter()}
+    taxonomy_level_counter = {
+        "order": Counter(), "class": Counter(), "phylum": Counter()
+    }
+    taxonomy_counter = Counter()
     summary_counter = Counter()
     with open(path) as fh:
         # skip the header
@@ -91,41 +74,54 @@ def parse_classifications_for_taxonomy(path):
                 if toks[7]:
                     summary_counter.update(["Assigned Both"])
             if toks[7]:
+                taxonomy_counter.update([toks[7]])
                 taxonomy = [j.strip() for j in toks[7].split(";")]
-                taxonomy_counter["order"].update([taxonomy[3]])
-                taxonomy_counter["class"].update([taxonomy[2]])
-                taxonomy_counter["phylum"].update([taxonomy[1]])
+                taxonomy_level_counter["order"].update([taxonomy[3]])
+                taxonomy_level_counter["class"].update([taxonomy[2]])
+                taxonomy_level_counter["phylum"].update([taxonomy[1]])
                 summary_counter.update(["Assigned Taxonomy"])
-    return taxonomy_counter, i, summary_counter
+    idx = shannon_index(np.array(list(taxonomy_counter.values())))
+    return dict(
+        taxonomy_level_counter=taxonomy_level_counter,
+        summary_counter=summary_counter,
+        shannon=idx,
+    )
 
 
-def get_df_at_tax_level(count_obj, sample):
+def get_df_at_tax_level(count_obj, sample, tax_level):
     df = pd.DataFrame(data=count_obj, index=[0]).transpose()
     df.reset_index(inplace=True)
+    df.columns = [tax_level, sample]
     return df
 
 
-def process_reads(tax_level, pandas_df, total_counts):
+def get_sample_order(lst):
+    """
+    >>> lst = [["j", 2],["o", 1],["e", 3]]
+    ['e', 'j', 'o']
+    """
+    return [i[0] for i in sorted(lst, key= lambda x: x[1], reverse=True)]
+
+
+def process_reads(df, tax_level, sample_order):
     """
     This function will take the merged reads from the file and put them into a graphable
     form for both counts and percents. It will return both.
     """
-    header = pandas_df.columns.tolist()
-    header.pop(0)
-    # organize these by count
-    full = pandas_df.sort_values(by=header, ascending=False)
-    sample_order = []
-    # this will make a list of the gini coefficient of where these should be
-    # located by diversity of the sample
-    for read_col in pandas_df.columns.tolist():
-        if not read_col == tax_level:
-            sample_order.append([read_col, gini(pandas_df[read_col])])
-    sample_order = sorted(sample_order, key= lambda x: x[1])
-    sub = full[[tax_level] + [sample_order[i][0] for i in range(len(sample_order))]]
+    header = df.columns.tolist()
+    df["summed_col"] = df[sample_order].sum(axis=1)
+    # sort df by taxon abundance which organizes the traces in the plots
+    df.sort_values(by="summed_col", ascending=False, inplace=True)
+    # drop the extra column
+    df = df[header]
+    # sort by diversity
+    sub = df[[tax_level] + sample_order].copy()
     cols = sub[tax_level].tolist()
-    # find the percent
-    sub_perc = sub[header].div(total_counts)
-    sub_perc_t = sub_perc.transpose()
+    # find the relative percent
+    # sub_perc = sub.div(sub.sum())
+    sub_perc_t = sub[sample_order].div(sub[sample_order].sum())
+    sub_perc_t = sub[sample_order] * 100
+    sub_perc_t = sub_perc_t.transpose()
     # reset the names
     sub_perc_t.columns = cols
     # these are just the counts
@@ -146,38 +142,44 @@ def compile_summary_df(classification_tables, tax_levels= ["phylum", "class", "o
     which is necessary to calculate the percentage of total that is being represented
     """
     samples = []
-    total_counts = []
     dfs = {}
     classifications_per_sample = {}
     # summary_counts = Counter()
     for classification_table in classification_tables:
         sample = get_sample(classification_table, "_classifications.txt")
-        samples.append(sample)
-        counts, observed_seqs, assignment_summary = parse_classifications_for_taxonomy(classification_table)
+        parsed_taxonomy = parse_classifications_for_taxonomy(classification_table)
+        samples.append([sample, parsed_taxonomy["shannon"]])
         # assigned #'s in summary table
-        classifications_per_sample[sample] = assignment_summary
-        total_counts.append(observed_seqs)
+        classifications_per_sample[sample] = parsed_taxonomy["summary_counter"]
         if len(dfs) == 0:
             for tax_level in tax_levels:
-                dfs[tax_level] = get_df_at_tax_level(counts[tax_level], sample)
-                dfs[tax_level].columns = [tax_level, sample]
+                dfs[tax_level] = get_df_at_tax_level(
+                    parsed_taxonomy["taxonomy_level_counter"][tax_level],
+                    sample,
+                    tax_level,
+                )
             continue
 
         for tax_level in tax_levels:
-            df = get_df_at_tax_level(counts[tax_level], sample)
-            df.columns = [tax_level, sample]
+            df = get_df_at_tax_level(
+                parsed_taxonomy["taxonomy_level_counter"][tax_level], sample, tax_level
+            )
             dfs[tax_level] = dfs[tax_level].merge(df, on=tax_level, how="outer")
+    # most diverse to least
+    sample_order = get_sample_order(samples)
     observations_at_levels = {"Counts": dict(), "Percentage": dict()}
     for tax_level in tax_levels:
-        c, p = process_reads(tax_level, dfs[tax_level], total_counts)
+        c, p = process_reads(dfs[tax_level], tax_level, sample_order)
         observations_at_levels["Counts"][tax_level] = c
         observations_at_levels["Percentage"][tax_level] = p
-    return observations_at_levels, pd.DataFrame.from_dict(classifications_per_sample, orient="index")
+    return observations_at_levels, pd.DataFrame.from_dict(
+        classifications_per_sample, orient="index"
+    )
 
 
 def make_plots(observations, summary_type):
     # data traces are taxonomies across samples
-    labels = {"Percentage": "Percent of Total Reads", "Counts": "Count of Alignments"}
+    labels = {"Percentage": "Relative Abundance", "Counts": "Counts"}
     # tax levels are hardcoded at this point
     data = [
         go.Bar(
@@ -370,20 +372,123 @@ def parse_log_files(
     return log_df[header].to_html().replace("\n", "\n" + 10 * " ")
 
 
+def build_quality_plot(r1_quality_files):
+    logger.info("Building Sequence Quality plots")
+    raw_qual_stats = defaultdict(lambda: defaultdict(list))
+    for r1_ee_file in r1_quality_files:
+        sample_name = get_sample(r1_ee_file, "_R1_eestats.txt")
+        r2_ee_file = "_R2".join(r1_ee_file.rsplit("_R1", 1))
+        with open(r1_ee_file) as fh:
+            reader = csv.DictReader(fh, delimiter="\t")
+            for row in reader:
+                raw_qual_stats["R1"][sample_name].append(float(row["Mean_Q"]))
+        with open(r2_ee_file) as fh:
+            reader = csv.DictReader(fh, delimiter="\t")
+            for row in reader:
+                q = float(row["Mean_Q"])
+                raw_qual_stats["R2"][sample_name].append(q)
+    data = []
+    for read_index, sample_data in raw_qual_stats.items():
+        color = "#1f77b4" if read_index == "R1" else "#d62728"
+        for sample_name, sample_stats in sample_data.items():
+            data.append(go.Scatter(
+                x=list(range(1,len(sample_stats))),
+                y=sample_stats,
+                name=sample_name,
+                text=sample_name,
+                hoverinfo="text+x+y",
+                legendgroup=read_index,
+                mode="lines",
+                line=dict(
+                    color=color,
+                    dash="solid"
+                    )
+                )
+            )
+    layout = go.Layout(
+        title='Mean Quality Scores for R1 and R2',
+        margin={"b": "auto", "r": "auto"},
+        xaxis={"title":"Position"},
+        yaxis={"title":"Quality (Phred score)"},
+        hovermode="closest",
+        showlegend=False,
+        autosize=True,
+        annotations=[
+            dict(
+                x=0,
+                y=1.1,
+                xref="paper",
+                yref="paper",
+                text="Forward",
+                showarrow=False,
+                font=dict(
+                    size=16,
+                    color="#ffffff"
+                ),
+                align="left",
+                borderpad=4,
+                bgcolor="#1f77b4",
+            ),
+            dict(
+                x=0.15,
+                y=1.1,
+                xref="paper",
+                yref="paper",
+                text="Reverse",
+                showarrow=False,
+                font=dict(
+                    size=16,
+                    color='#ffffff'
+                ),
+                align='left',
+                borderpad=4,
+                bgcolor="#d62728",
+            )
+        ]
+    )
+    fig = go.Figure(data=data, layout=layout)
+    quality_plot = offline.plot(
+        fig,
+        **PLOTLY_PARAMS
+    )
+    return quality_plot
+
+
+def get_conda_env_str(conda_env_file):
+    # conda environment
+    conda_env = ""
+    with open(conda_env_file) as fh:
+        for i, line in enumerate(fh):
+            if i == 0:
+                conda_env += line
+            else:
+                conda_env += "    " + line
+    return conda_env
+
+
 def main(
     decontamination_logs,
     deduplication_logs,
     merge_logs,
     summary_tables,
+    r1_quality_files,
     html,
+    conda_env,
+    function_table,
+    taxonomy_table,
+    taxonomy_function_table,
 ):
-    observations_at_levels, classifications_per_sample = compile_summary_df(summary_tables)
+    observations_at_levels, classifications_per_sample = compile_summary_df(
+        summary_tables
+    )
     div = {}
     for v in ["Percentage", "Counts"]:
         div[v] = offline.plot(make_plots(observations_at_levels, v), **PLOTLY_PARAMS)
     html_tbl = parse_log_files(
         deduplication_logs, decontamination_logs, merge_logs, classifications_per_sample
     )
+    quality_plot = build_quality_plot(r1_quality_files)
+    conda_env = get_conda_env_str(conda_env)
     report_str = """
 
 .. raw:: html
@@ -406,13 +511,26 @@ PerSeq_ - Per sequence functional and taxonomic assignments
 Summary
 -------
 
+Sequence Counts
+***************
+
+.. raw:: html
+
+    {html_tbl}
+
+Sequence Quality
+****************
+
+.. raw:: html
+
+    {quality_plot}
+
 Counts by Taxonomy
 ******************
 
 .. raw:: html
 
     {div[Counts]}
-
 
 Percentage by Taxonomy
 **********************
@@ -421,21 +539,85 @@ Percentage by Taxonomy
 
     {div[Percentage]}
 
+Methods
+-------
 
-Reads Surviving
-****************
+Paired-end sequences were evaluated for quality using VSEARCH [1]. Sequence
+reads are deduplicated using the clumpify tool [2] then filtered of phiX and
+rRNA using bbsplit [2]. Passing sequences are quality trimmed after successful
+merging using bbmerge [2]. Sequences are allowed to be extended up 300 bp
+during the merging process to account for non-overlapping R1 and R2 sequences
+(``k=60 extend2=60 iterations=5 qtrim2=t``). Functional annotation and taxonomic
+classification were performed on the merged sequences.
 
-.. raw:: html
+Functional Annotation
+*********************
 
-    {html_tbl}
+The blastx algorithm of DIAMOND [3] was used to align nucleotide sequences to
+the KEGG protein reference database [4] consisting of non-redundant, family
+level fungal eukaryotes and genus level prokaryotes (``--strand=both``). The
+highest scoring alignment per sequence was used for functional annotation.
 
+Taxonomic Annotation
+********************
+
+Kmer-based taxonomic classification was performed on the merged reads using
+Kaiju [5] in greedy mode (``-a greedy -E 0.05``). NCBI's nr database [6]
+containing reference sequences for archaea, bacteria, viruses, fungi, and
+microbial eukaryotes was used as the reference index for Kaiju.
+
+References
+**********
+
+1. Rognes T, Flouri T, Nichols B, Quince C, Mahé F. VSEARCH: a versatile open source tool for metagenomics. PeerJ. PeerJ Inc; 2016;4:e2584.
+2. Bushnell B. BBTools [Internet]. Available from: https://sourceforge.net/projects/bbmap/
+3. Buchfink B, Xie C, Huson DH. Fast and sensitive protein alignment using DIAMOND. Nat. Methods. Nature Publishing Group; 2015;12:59–60.
+4. Kanehisa M, Sato Y, Kawashima M, Furumichi M, Tanabe M. KEGG as a reference resource for gene and protein annotation. Nucleic Acids Res. 2016;44:D457–62.
+5. Menzel P, Ng KL, Krogh A. Fast and sensitive taxonomic classification for metagenomics with Kaiju. Nat Commun. Nature Publishing Group; 2016;7:11257.
+6. NCBI Resource Coordinators. Database resources of the National Center for Biotechnology Information. Nucleic Acids Res. 2018;46:D8–D13.
+
+
+Execution Environment
+---------------------
+
+::
+
+    {conda_env}
+
+Output
+------
+
+Per sample classifications in tables/ contain:
+
+.. table::
+    :widths: auto
+
+    ====================  ==========================================================================================================================================
+    Header ID             Definition
+    ====================  ==========================================================================================================================================
+    aa_alignment_length   The length of the DIAMOND blastx hit
+    aa_percent_id         The percent ID of the DIAMOND blastx hit; could be used to increase post-processing stringency
+    ec                    Enzyme Commission number from KEGG; semicolon delimited where multiple
+    ko                    KEGG entry ID
+    product               KEGG gene ID <semicolon> KEGG product
+    read_id               The sequence identifier (unique)
+    tax_alignment_length  The length of the Kaiju hit
+    tax_classification    The Kaiju classification in order of superkingdom, phylum, order, class, family, genus, species; "NA" for each taxonomic level not defined
+    ====================  ==========================================================================================================================================
 
 Downloads
 ---------
 
 
 """
-    report(report_str, html, stylesheet="")
+    report(
+        report_str,
+        html,
+        file1=function_table,
+        file2=taxonomy_table,
+        file3=taxonomy_function_table,
+        stylesheet="",
+    )
 
 
 if __name__ == "__main__":
@@ -444,12 +626,22 @@ if __name__ == "__main__":
     p.add_argument("--deduplication-logs", nargs="+")
     p.add_argument("--merge-logs", nargs="+")
     p.add_argument("--summary-tables", nargs="+")
+    p.add_argument("--r1-quality-files", nargs="+")
     p.add_argument("--html")
+    p.add_argument("conda_env")
+    p.add_argument("function_table")
+    p.add_argument("taxonomy_table")
+    p.add_argument("taxonomy_function_table")
     args = p.parse_args()
     main(
         args.decontamination_logs,
         args.deduplication_logs,
         args.merge_logs,
         args.summary_tables,
+        args.r1_quality_files,
         args.html,
+        args.conda_env,
+        args.function_table,
+        args.taxonomy_table,
+        args.taxonomy_function_table,
     )
