@@ -276,10 +276,28 @@ rule all:
         expand("tables/{sample}_classifications.txt", sample=config["samples"].keys())
 
 
+rule get_raw_fastq_qualities:
+    input:
+        unpack(lambda wildcards: config["samples"][wildcards.sample])
+    output:
+        r1 = "logs/{sample}_R1_eestats.txt",
+        r2 = "logs/{sample}_R2_eestats.txt"
+    conda:
+        CONDAENV
+    threads:
+        2
+    group:
+        "sample_group"
+    shell:
+        """
+        vsearch --threads 1 --fastq_eestats {input.r1} --output {output.r1} &
+        vsearch --threads 1 --fastq_eestats {input.r2} --output {output.r2}
+        """
+
+
 rule deduplicate_reads:
     input:
-        r1 = lambda wildcards: config["samples"][wildcards.sample]["r1"],
-        r2 = lambda wildcards: config["samples"][wildcards.sample]["r2"]
+        unpack(lambda wildcards: config["samples"][wildcards.sample])
     output:
         r1 = "quality_control/{sample}_00_deduplicate_R1.fastq.gz",
         r2 = "quality_control/{sample}_00_deduplicate_R2.fastq.gz"
@@ -536,3 +554,13 @@ rule combine_sample_output:
                         ec, tax_alignment_length, tax_classification, sep="\t", file=ofh)
                     # just print the best HSP
                     break
+
+
+# rule build_report:
+#     input:
+#         ee_stats = expand("logs/{sample}_R1_eestats.txt", sample=SAMPLES.keys())
+#
+#     shell:
+#         """
+#         python scripts/build_report.py --
+#         """
