@@ -37,8 +37,26 @@ conda install python3 snakemake
 Using the workflow
 ==================
 
+```
+mkdir kaiju_db
+cd kaiju_db
+makeDB.sh -e -t {threads}
+```
+
+In the config, set `kaiju_db` as the absolute path to this directory:
+
+```
+kaijudb: /full/path/kaiju_db
+```
+
+Expected files after building the database are:
+
++ names.dmp
++ nodes.dmp
++ kaiju_db.fmi
+
+
 + Cloning the repo
 + Placing data in the right spot and expectations of format
 + Executing snakemake with basic commands; link to snakemake docs
 + Expected output
-
