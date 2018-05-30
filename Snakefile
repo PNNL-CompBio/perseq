@@ -508,3 +508,18 @@ rule combine_sample_output:
                     ec, tax_alignment_length, tax_classification, lca_classification, sep="\t", file=ofh)
                 # just print the best HSP
                 break
+rule build_tax_ko:
+    input:
+        json='/Users/zavo603/Documents/Nicki_files/perseq/ko00001.json',
+        path_to_class_tables = "tables/{sample}_classifications.txt"
+    output:
+        'tax_ko_tbl.txt'
+    threads:
+        config.get("threads", 1)
+    shell:
+        """
+        tax_ko_info.py --json_file_path {input.json} \
+        --file_path {input.path_to_class_tables} \
+        --tax_level --min_perc_id --min_len --group_on --output {output}
+
+        """
