@@ -8,4 +8,8 @@ dependencies:
     - click=6.7
     - diamond=0.9.21
     - kaiju=1.6.2
+    - numpy
     - pandas=0.22.0
+    - plotly=2.7.0
+    - snakemake>=5.1.3
+    - vsearch=2.6.0

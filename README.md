@@ -37,6 +37,8 @@ conda install python3 snakemake
 Using the workflow
 ==================
 
+- htseq=0.9.1
+
 ```
 mkdir kaiju_db
 cd kaiju_db
