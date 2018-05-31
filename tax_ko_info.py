@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import os
 import pandas as pd
 import json
@@ -5,34 +7,7 @@ import argparse
 
 # @click.command()
 # @click.argument('json_file')
-parser = argparse.ArgumentParser()
-parser.add_argument('--json_file_path',
-                    help='path to json file of KOs')
-parser.add_argument('--file_path',
-                    help='path to the _classification.txt files')
-parser.add_argument('--tax_level', default='Phylum',
-                    help='taxa level to show')
-parser.add_argument('--min_perc_id',type=int, default=50,
-                    help='lowest percent ID to retain default: 50')
-parser.add_argument('--min_len', type=int, default=40,
-                    help='lowest alingment length to reatin default: 40')
-#parser.add_argument('--function',
-#                    help='functional aspect of species to reatin(ko,ec,or product) default: ko')
-parser.add_argument('--group_on', nargs='+',default='tax_classification',help='Information to be retained(taxonomy, function, etc.). Must match the file headers default: tax_classifcation')
-parser.add_argument('--output',default='tax_ko_out.txt',type=str,help='Output table name')
 
-args = parser.parse_args()
-json_path=args.json_file_path
-file_path=args.file_path
-tax_level=args.tax_level
-min_perc_id=args.min_perc_id
-min_len=args.min_len
-out=args.output
-group_on=args.group_on
-
-group_with=list(group_on)
-
-group_on.extend(["aa_alignment_length","aa_percent_id"])
 
 def parse_kegg_json(json_file):
     with open(json_file) as json_file:
@@ -65,6 +40,8 @@ def parse_kegg_json(json_file):
         kegg_pd = pd.DataFrame.from_dict(kegg_dict, orient="index").reset_index()
         kegg_pd = kegg_pd.rename(columns={"index": "KO"})
         return kegg_pd
+
+
 # @click.option('--taxa',default='Phylum',help='level of taxonomy to show in final table default: Phylum')
 # @click.option('--min_perc_id',default=40,help='minimum cut off of aa percent id to retain read default: 40' )
 # @click.option('--min_len',default=50, help='minimum aa alignment length to retain read default:50')
@@ -72,10 +49,17 @@ def parse_kegg_json(json_file):
 # @click.option('--function',default='ko',help='options include: ec, ko or product default: ko')
 
 
-
 # files=open('/Users/zavo603/Documents/Nicki_files/perseq/tables/t140m_classifications.txt')
 # file_original='/Users/zavo603/Documents/Nicki_files/perseq/tables/t140m_classifications.txt'
-def build_func_tax_tbl(json_path,taxa,min_perc_id,min_len,file_path,group_with,group_on):
+def main(
+    json_path,
+    classification_file_path,
+    tax_level,
+    min_perc_id,
+    min_len,
+    group_on,
+    output,
+):
 
     # function='ko'
     # tax_level='Phylum'
@@ -83,6 +67,11 @@ def build_func_tax_tbl(json_path,taxa,min_perc_id,min_len,file_path,group_with,g
     # align_len=40
     # json_path='/Users/zavo603/Documents/Nicki_files/perseq/ko00001.json'
     # path='/Users/zavo603/Documents/Nicki_files/perseq/tables/'
+    if type(group_on) == str:
+        group_on = [group_on]
+    group_with = list(group_on)
+    group_on = list(group_on)
+    group_on.extend(["aa_alignment_length", "aa_percent_id"])
     tax_levels = {
         "Super Kingdom": 1,
         "Kingdom": 1,
@@ -96,8 +85,8 @@ def build_func_tax_tbl(json_path,taxa,min_perc_id,min_len,file_path,group_with,g
     grouped_sample_tbl = None
     samples = []
     ## THIS WILL NEED TO BE REWORKED TO ACCOMODATE SNAKEMAKE
-    for f in os.listdir(file_path):
-        f = os.path.join(file_path, f)
+    for f in os.listdir(classification_file_path):
+        f = os.path.join(classification_file_path, f)
         sample = os.path.basename(f).partition("_classifications.txt")[0]
         samples.append(sample)
         with open(f) as file:
@@ -113,19 +102,20 @@ def build_func_tax_tbl(json_path,taxa,min_perc_id,min_len,file_path,group_with,g
                     tax_ko["tax"].append(tax)
                 except IndexError:
                     tax_ko["tax"].append("NA")
+            print(group_on)
+            print(group_with)
             if grouped_sample_tbl is None:
                 tax_ko_tbl = pd.DataFrame(tax_ko)
                 full_tbl = pd.read_table(
-                    f,
-                    usecols=group_on,
+                    f, usecols=group_on
                 )  # grab only the two columns of interest(can be changed later)
 
-                full_tbl["Count_%s" % sample] = "NA"  # add an empty column
-                try:
+                full_tbl[sample] = "NA"  # add an empty column
+                if "tax_classification" in group_with:
                     full_tbl["tax_classification"] = tax_ko_tbl[
-                    "tax"
+                        "tax"
                     ]  ##this will assign the tax classification to the edited taxonomy from above
-                except:
+                else:
                     pass
                 final_tbl = full_tbl.fillna("NA")
 
@@ -134,36 +124,27 @@ def build_func_tax_tbl(json_path,taxa,min_perc_id,min_len,file_path,group_with,g
                 final_tbl = final_tbl.drop(
                     ["aa_percent_id", "aa_alignment_length"], axis=1
                 )
-                print(group_with)
-                grouped_sample_tbl = (
-                    final_tbl.groupby(group_with)
-                    .count()
-                    .reset_index()
-                )
+                # print(group_with)
+                grouped_sample_tbl = final_tbl.groupby(group_with).count().reset_index()
                 continue
 
-            print(sample)
+            # print(sample)
             tax_ko_tbl = pd.DataFrame(tax_ko)
             full_tbl = pd.read_table(
-                f,
-                usecols=group_on,
+                f, usecols=group_on
             )  # grab only the two columns of interest(can be changed later)
-            full_tbl["Count_%s" % sample] = "NA"  # add an empty column
-            try:
+            full_tbl[sample] = "NA"  # add an empty column
+            if "tax_classification" in group_with:
                 full_tbl["tax_classification"] = tax_ko_tbl[
-                "tax"
-            ]  ##this will assign the tax classification to the edited taxonomy from above
-            except:
+                    "tax"
+                ]  ##this will assign the tax classification to the edited taxonomy from above
+            else:
                 pass
             final_tbl = full_tbl.fillna("NA")
             final_tbl = final_tbl[final_tbl["aa_percent_id"] > min_perc_id]
             final_tbl = final_tbl[final_tbl["aa_alignment_length"] > min_len]
             final_tbl = final_tbl.drop(["aa_percent_id", "aa_alignment_length"], axis=1)
-            grouped_tbl = (
-                final_tbl.groupby(group_with)
-                .count()
-                .reset_index()
-            )
+            grouped_tbl = final_tbl.groupby(group_with).count().reset_index()
             grouped_sample_tbl = grouped_sample_tbl.merge(
                 grouped_tbl, on=group_with, how="outer"
             ).fillna("0")
@@ -179,13 +160,65 @@ def build_func_tax_tbl(json_path,taxa,min_perc_id,min_len,file_path,group_with,g
     except:
         pass
 
-    return grouped_sample_tbl
-
-def main():
-     test = build_func_tax_tbl(json_path,tax_level,min_perc_id,min_len,file_path,group_with,group_on)
-     test.to_csv(out,sep='\t')
-     print('done')
+    grouped_sample_tbl.to_csv(output, sep="\t")
 
 
-if __name__ == '__main__':
-    main()
+# def main():
+#      test = build_func_tax_tbl(json_path,tax_level,min_perc_id,min_len,file_path,group_with,group_on)
+#      test.to_csv(out,sep='\t')
+#      print('done')
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Generates a tab seperated file of the desired functional information"
+    )
+    parser.add_argument("-jfp", "--json-file-path", help="path to json file of KOs")
+    parser.add_argument(
+        "-cfp",
+        "--classification-file-path",
+        help="path to the _classification.txt files",
+    )
+    parser.add_argument(
+        "-t", "--tax-level", default="Phylum", help="taxa level to show default: Phylum"
+    )
+    parser.add_argument(
+        "-mp",
+        "--min-perc-id",
+        type=int,
+        default=50,
+        help="lowest percent ID to retain default: 50",
+    )
+    parser.add_argument(
+        "-ml",
+        "--min-len",
+        type=int,
+        default=40,
+        help="lowest alignment length to retain default: 40",
+    )
+    # parser.add_argument('--function',
+    #                    help='functional aspect of species to reatin(ko,ec,or product) default: ko')
+    parser.add_argument(
+        "-g",
+        "--group-on",
+        nargs="+",
+        default="tax_classification",
+        help="Information to be retained(taxonomy, function, etc.). Must match the file headers default: tax_classifcation",
+    )
+    parser.add_argument(
+        "-o",
+        "--output",
+        default="tax_ko_out.txt",
+        type=str,
+        help="Output table name default: tax_ko_out.txt",
+    )
+    args = parser.parse_args()
+    main(
+        args.json_file_path,
+        args.classification_file_path,
+        args.tax_level,
+        args.min_perc_id,
+        args.min_len,
+        args.group_on,
+        args.output,
+    )
