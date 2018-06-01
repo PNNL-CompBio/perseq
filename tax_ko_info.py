@@ -9,34 +9,61 @@ import argparse
 # @click.argument('json_file')
 
 
-def parse_kegg_json(json_file):
-    with open(json_file) as json_file:
+def parse_kegg_json(json_file_path):
+    with open(json_file_path) as json_file:
         json_class = json.load(json_file)
         kegg_dict = dict()
         for root in json_class["children"]:
-
+            #         print("1", children)
+            #         print("1 name", test_list["name"])
             for level_1 in root["children"]:
-
+                # print("sg1", subgroup_1)
                 for level_2 in level_1["children"]:
-
+                    # print(level_2)
                     try:
                         for level_3 in level_2["children"]:
                             # print("sg3", subgroup_3["name"], subgroup_2["name"], subgroup_1["name"], children["name"])
                             # final print
                             ko = "ko:" + level_3["name"].partition(" ")[0]
-                            func = level_3["name"].partition(" ")[2]
+                            if ko in kegg_dict:
+                                # if kegg_dict[ko]['level_1'].find(root['name']) == -1:
+                                kegg_dict[ko]["level_1"] += ";" + root["name"]
+                                # kegg_dict[ko]['level_2']+='/'+level_1['name']
+
+                                # if kegg_dict[ko]['level_2'].find(level_1['name']) == -1:
+                                kegg_dict[ko]["level_2"] += ";" + level_1["name"]
+                                # if kegg_dict[ko]['level_3'].find(level_2['name']) == -1:
+                                kegg_dict[ko]["level_3"] += ";" + level_2["name"]
+
+                            else:
+
+                                # func=level_3['name'].partition(' ')[2]
+                                kegg_dict[ko] = {
+                                    "level_1": root["name"],
+                                    "level_2": level_1["name"],
+                                    "level_3": level_2["name"],
+                                }
+
+                    except:
+
+                        ko = "ko:K" + level_2["name"].partition(" ")[0]
+                        if ko in kegg_dict:
+                            # if ko in kegg_dict:
+                            # if kegg_dict[ko]['level_1'].find(root['name']) == -1:
+                            kegg_dict[ko]["level_1"] += ";" + root["name"]
+                            # kegg_dict[ko]['level_2']+='/'+level_1['name']
+
+                            # if kegg_dict[ko]['level_2'].find(level_1['name']) == -1:
+                            kegg_dict[ko]["level_2"] += ";" + level_1["name"]
+                            # if kegg_dict[ko]['level_3'].find(level_2['name']) == -1:
+                            kegg_dict[ko]["level_3"] += ";" + level_2["name"]
+                        else:
+                            # print(ko,level_2['name'])
                             kegg_dict[ko] = {
-                                "level_1": level_1["name"],
-                                "level_2": level_2["name"],
-                                "level_3": func,
+                                "level_1": root["name"],
+                                "level_2": level_1["name"],
+                                "level_3": level_2["name"],
                             }
-                    except KeyError:
-                        ko = "ko:KO" + level_2["name"].partition(" ")[0]
-                        kegg_dict[ko] = {
-                            "level_1": level_1["name"],
-                            "level_2": level_2["name"],
-                            "level_3": "NA",
-                        }
         kegg_pd = pd.DataFrame.from_dict(kegg_dict, orient="index").reset_index()
         kegg_pd = kegg_pd.rename(columns={"index": "KO"})
         return kegg_pd
@@ -73,18 +100,19 @@ def main(
     group_on = list(group_on)
     group_on.extend(["aa_alignment_length", "aa_percent_id"])
     tax_levels = {
-        "Super Kingdom": 1,
-        "Kingdom": 1,
-        "Phylum": 2,
-        "Class": 3,
-        "Order": 4,
-        "Family": 5,
-        "Genus": 6,
-        "Species": 7,
+        "super-kingdom": 1,
+        "kingdom": 1,
+        "phylum": 2,
+        "class": 3,
+        "order": 4,
+        "family": 5,
+        "genus": 6,
+        "species": 7,
     }
     grouped_sample_tbl = None
     samples = []
     ## THIS WILL NEED TO BE REWORKED TO ACCOMODATE SNAKEMAKE
+    kegg_pd = parse_kegg_json(json_path)
     for f in os.listdir(classification_file_path):
         f = os.path.join(classification_file_path, f)
         sample = os.path.basename(f).partition("_classifications.txt")[0]
@@ -102,8 +130,8 @@ def main(
                     tax_ko["tax"].append(tax)
                 except IndexError:
                     tax_ko["tax"].append("NA")
-            print(group_on)
-            print(group_with)
+            # print(group_on)
+            # print(group_with)
             if grouped_sample_tbl is None:
                 tax_ko_tbl = pd.DataFrame(tax_ko)
                 full_tbl = pd.read_table(
@@ -149,18 +177,18 @@ def main(
                 grouped_tbl, on=group_with, how="outer"
             ).fillna("0")
     grouped_sample_tbl = grouped_sample_tbl.rename(
-        columns={
-            "tax_classification": "Tax. Classification(%s)" % tax_level,
-            "ko": "KO",
-        }
+        columns={"tax_classification": "taxonomy_%s" % tax_level, "ko": "KO"}
     )
-    kegg_pd = parse_kegg_json(json_path)
+
     try:
-        grouped_sample_tbl = grouped_sample_tbl.merge(kegg_pd, on="KO")
+        # print(grouped_sample_tbl.shape)
+        # print(kegg_pd.shape)
+        grouped_sample_tbl = grouped_sample_tbl.merge(kegg_pd, on="KO", how="outer")
     except:
+        # print('didnt work')
         pass
 
-    grouped_sample_tbl.to_csv(output, sep="\t")
+    grouped_sample_tbl.to_csv(output, sep="\t", index=False)
 
 
 # def main():
@@ -180,7 +208,20 @@ if __name__ == "__main__":
         help="path to the _classification.txt files",
     )
     parser.add_argument(
-        "-t", "--tax-level", default="Phylum", help="taxa level to show default: Phylum"
+        "-t",
+        "--tax-level",
+        choices=[
+            "super_kingdom",
+            "kingdom",
+            "phylum",
+            "class",
+            "order",
+            "family",
+            "genus",
+            "species",
+        ],
+        default="Phylum",
+        help="taxa level to show default: Phylum",
     )
     parser.add_argument(
         "-mp",
@@ -201,6 +242,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-g",
         "--group-on",
+        choices=["tax_classification", "ko", "ec", "product"],
         nargs="+",
         default="tax_classification",
         help="Information to be retained(taxonomy, function, etc.). Must match the file headers default: tax_classifcation",
