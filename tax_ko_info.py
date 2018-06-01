@@ -182,8 +182,8 @@ def main(
 
     try:
         # print(grouped_sample_tbl.shape)
-        # print(kegg_pd.shape)
-        grouped_sample_tbl = grouped_sample_tbl.merge(kegg_pd, on="KO", how="outer")
+        print(kegg_pd.shape)
+        grouped_sample_tbl = grouped_sample_tbl.merge(kegg_pd, on="KO")
     except:
         # print('didnt work')
         pass
@@ -220,8 +220,8 @@ if __name__ == "__main__":
             "genus",
             "species",
         ],
-        default="Phylum",
-        help="taxa level to show default: Phylum",
+        default="phylum",
+        help="taxa level to show default: phylum",
     )
     parser.add_argument(
         "-mp",
