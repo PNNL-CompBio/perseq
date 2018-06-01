@@ -100,7 +100,7 @@ def main(
     group_on = list(group_on)
     group_on.extend(["aa_alignment_length", "aa_percent_id"])
     tax_levels = {
-        "super-kingdom": 1,
+        "superkingdom": 1,
         "kingdom": 1,
         "phylum": 2,
         "class": 3,
@@ -211,7 +211,7 @@ if __name__ == "__main__":
         "-t",
         "--tax-level",
         choices=[
-            "super_kingdom",
+            "superkingdom",
             "kingdom",
             "phylum",
             "class",
