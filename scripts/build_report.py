@@ -6,6 +6,7 @@ from collections import Counter, defaultdict
 import numpy as np
 import pandas as pd
 import plotly
+import plotly.figure_factory as ff
 import plotly.graph_objs as go
 from plotly.offline import iplot, offline
 from snakemake.utils import logger, report
@@ -118,9 +119,8 @@ def process_reads(df, tax_level, sample_order):
     sub = df[[tax_level] + sample_order].copy()
     cols = sub[tax_level].tolist()
     # find the relative percent
-    # sub_perc = sub.div(sub.sum())
     sub_perc_t = sub[sample_order].div(sub[sample_order].sum())
-    sub_perc_t = sub[sample_order] * 100
+    sub_perc_t = sub_perc_t * 100
     sub_perc_t = sub_perc_t.transpose()
     # reset the names
     sub_perc_t.columns = cols
@@ -311,27 +311,6 @@ def parse_merge_file(path):
     return counts
 
 
-def parse_classifications_tables(tables):
-    logger.info("Parsing summary tables")
-    final = {}
-    for table_file in tables:
-        sample = os.path.basename(table_file).partition("_classifications.txt")[0]
-        with open(table_file) as fh:
-            counter = Counter()
-            header = next(fh)
-            for line in fh:
-                toks = line.strip("\r\n").split("\t")
-                if toks[3]:
-                    counter.update(["Assigned Function"])
-                    if toks[7]:
-                        counter.update(["Assigned Both"])
-                if toks[7]:
-                    counter.update(["Assigned Taxonomy"])
-        final[sample] = counter
-    df = pd.DataFrame.from_dict(final, orient="index")
-    return df
-
-
 def parse_log_files(
     deduplication_logs, decontamination_logs, merge_logs, classifications_per_sample
 ):
@@ -368,8 +347,20 @@ def parse_log_files(
     # parse the summary tables for assignments
     # tables_df = parse_classifications_tables(summary_tables)
     log_df = log_df.merge(classifications_per_sample, left_index=True, right_index=True)
+    log_df.reset_index(inplace=True)
+    log_df.columns = ["Sample"] + log_df.columns[1:]
     header.extend(["Assigned Function", "Assigned Taxonomy", "Assigned Both"])
-    return log_df[header].to_html().replace("\n", "\n" + 10 * " ")
+    colorscale = [[0, '#151d26'], [.5, 'white'], [1, 'white']]
+    fig = ff.create_table(log_df[header], colorscale=colorscale)
+    fig["data"][0]["opacity"] = 100
+    fig["layout"]["margin"]["b"] = 30
+    fig["layout"]["margin"]["r"] = 20
+    sample_summary_table = offline.plot(
+        fig,
+        **PLOTLY_PARAMS
+    )
+    # return log_df[header].to_html().replace("\n", "\n" + 10 * " ")
+    return sample_summary_table
 
 
 def build_quality_plot(r1_quality_files):
@@ -511,6 +502,9 @@ PerSeq_ - Per sequence functional and taxonomic assignments
 Summary
 -------
 
+Samples are sorted based on their Shannon index calculated from taxonomically
+annotated sequences. The order is most to least diverse.
+
 Sequence Counts
 ***************
 
@@ -605,9 +599,37 @@ Per sample classifications in tables/ contain:
     tax_classification    The Kaiju classification in order of superkingdom, phylum, order, class, family, genus, species; "NA" for each taxonomic level not defined
     ====================  ==========================================================================================================================================
 
+
+Per taxonomy assignments in tables named taxonomy_<level>.txt contain:
+
+.. table::
+    :widths: auto
+
+    ====================  ======================================================
+    Header ID             Definition
+    ====================  ======================================================
+    taxonomy_<level>      taxonomic level into which counts have been summed
+    samples names         Non-normalized, per sample sum at this taxonomic level
+    ====================  ======================================================
+
+Per function assignments in tables named function_<type>.txt contain:
+
+.. table::
+    :widths: auto
+
+    ====================  ===================================================================
+    Header ID             Definition
+    ====================  ===================================================================
+    <type>                either KO or EC into which counts have been summed
+    samples names         Non-normalized, per sample sum for this particular functional group
+    level_1               KEGG hierarchy [level 1] for KO defined in first column
+    level_2               KEGG hierarchy [level 2] for KO defined in first column
+    level_3               KEGG hierarchy [level 3] for KO defined in first column
+    ====================  ===================================================================
+
+
 Downloads
 ---------
-
 
 """
     report(
