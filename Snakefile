@@ -276,23 +276,23 @@ rule all:
         expand("tables/{sample}_classifications.txt", sample=config["samples"].keys())
 
 
-rule get_raw_fastq_qualities:
-    input:
-        unpack(lambda wildcards: config["samples"][wildcards.sample])
-    output:
-        r1 = "logs/{sample}_R1_eestats.txt",
-        r2 = "logs/{sample}_R2_eestats.txt"
-    conda:
-        CONDAENV
-    threads:
-        2
-    group:
-        "sample_group"
-    shell:
-        """
-        vsearch --threads 1 --fastq_eestats {input.r1} --output {output.r1} &
-        vsearch --threads 1 --fastq_eestats {input.r2} --output {output.r2}
-        """
+# rule get_raw_fastq_qualities:
+#     input:
+#         unpack(lambda wildcards: config["samples"][wildcards.sample])
+#     output:
+#         r1 = "logs/{sample}_R1_eestats.txt",
+#         r2 = "logs/{sample}_R2_eestats.txt"
+#     conda:
+#         CONDAENV
+#     threads:
+#         2
+#     group:
+#         "sample_group"
+#     shell:
+#         """
+#         vsearch --threads 1 --fastq_eestats {input.r1} --output {output.r1} &
+#         vsearch --threads 1 --fastq_eestats {input.r2} --output {output.r2}
+#         """
 
 
 rule deduplicate_reads:
@@ -317,6 +317,23 @@ rule deduplicate_reads:
             out={output.r1} out2={output.r2} \
             dedupe=t optical=t threads={threads} \
             -Xmx{resources.java_mem}G 2> {log}
+        """
+
+
+rule get_raw_fastq_qualities:
+    input:
+        "quality_control/{sample}_00_deduplicate_{idx}.fastq.gz"
+    output:
+        "logs/{sample}_{idx}_eestats.txt"
+    conda:
+        CONDAENV
+    threads:
+        1
+    group:
+        "sample_group"
+    shell:
+        """
+        vsearch --threads 1 --fastq_eestats {input} --output {output}
         """
 
 
@@ -558,7 +575,7 @@ rule combine_sample_output:
 
 # rule build_report:
 #     input:
-#         ee_stats = expand("logs/{sample}_R1_eestats.txt", sample=SAMPLES.keys())
+#         ee_stats = expand("logs/{sample}_{idx}_eestats.txt", sample=SAMPLES.keys(), idx=["R1", "R2"])
 #
 #     shell:
 #         """
