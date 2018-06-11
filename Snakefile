@@ -6,6 +6,182 @@ import os
 import sys
 from snakemake.logging import logger
 from snakemake.utils import report
+from collections import Counter, defaultdict, deque, OrderedDict
+
+
+##tree class
+class Node(object):
+
+    def __init__(self, taxonomy, node_id, parent_id, tax_level):
+        """Represents a node within a tree.
+        Args:
+            taxonomy (str): taxonomy name or ID
+            node_id (str): taxonomy ID
+            parent_id (str): taxonomy ID of parent
+            tax_level (str): the taxonomic level for this node_id
+        """
+        # the current node's string ID
+        self.taxonomy = taxonomy
+        # the current node's digit ID
+        self.node_id = node_id
+        self.parent_id = parent_id
+        self.tax_level = tax_level
+
+class Tree(object):
+
+    def __init__(self, tree_file):
+        """Builds reference dictionary of Taxonomy Name, Taxonomy ID, and Parent Taxonomy ID."""
+        self.tree = defaultdict(dict)
+        with open(tree_file) as tree_fh:
+            for line in tree_fh:
+                toks = line.strip().split("\t")
+                if not toks[0] == '1' and not toks[2] == '1':
+                    assert not toks[0] == toks[2]
+                if not len(toks) == 4:
+                    logging.warning("Line [%s] does not have ID, NAME, PARENTID, TAX LEVEL" % line.strip())
+                    continue
+                self.add_node(toks[1], toks[0], toks[2], toks[3])
+
+
+
+
+    def add_node(self, taxonomy, node_id, parent_id, tax_level):
+        """Adds node to tree dictionary.
+        Args:
+            taxonomy (str): the taxonomy name
+            node_id (str): the taxonomy id
+            parent_id (str): the parent's taxonomy id
+            tax_level (str): the taxonomic level for this node_id
+        """
+
+        # taxonomy id to node mapping; ensures unique nodes despite non-unique names
+        self.tree[node_id] = Node(taxonomy, node_id, parent_id, tax_level)
+
+
+    def lca(self, taxonomies, threshold=1.):
+
+        if threshold > 1:
+            threshold = 1
+        elif threshold < 0.01:
+            # 10% as the minimum
+            threshold = 0.1
+
+        count_target = len(taxonomies) * threshold
+        count_taxonomies = defaultdict(int)
+
+        for taxonomy in taxonomies:
+            #print('tax',taxonomy)
+
+            try:
+                current_taxonomy = self.tree[taxonomy].node_id
+                #print(current_taxonomy)
+            except AttributeError:
+                # dict when key not present
+                # taxonomy represented in the reference database, but is not present in the tree
+                continue
+
+            while not current_taxonomy == "1":
+                #print('curtx',current_taxonomy)
+                count_taxonomies[current_taxonomy] += 1
+                if count_taxonomies[current_taxonomy] >= count_target:
+                    #print('target found')
+                    return self.tree[current_taxonomy].node_id
+
+                # traverse up tree
+                current_taxonomy = self.tree[current_taxonomy].parent_id
+        return "1"
+
+    def taxonomic_lineage(self, taxonomy):
+
+        # a large portion of ORFs
+        if taxonomy == "1":
+            return [taxonomy]
+
+        lineage = [taxonomy]
+        while not taxonomy == "1":
+            taxonomy = self.tree[taxonomy].parent_id
+            # prepend
+            lineage.insert(0, taxonomy)
+        return lineage
+
+
+
+
+TAX_LEVELS=["superkingdom", "phylum", "class", "order", "family", "genus", "species"]
+def validate_lineage(lineage, sep=";"):
+
+    levels = ["k" if tax_level == "superkingdom" else tax_level[0] for tax_level in TAX_LEVELS]
+    #print(levels)
+    valid_lineage = []
+    for idx in levels:
+        # removes commas in tax names
+        #print(idx)
+        valid_lineage.append("%s__%s" % (idx, lineage.get(idx, "?").replace(",", "")))
+    return sep.join(valid_lineage)
+
+#calls validate lineage
+def lineage_form(lca):
+
+    lineage = {}
+    for item in test.taxonomic_lineage(lca):
+        node = test.tree[item]
+        #print(node)
+        if node.tax_level in TAX_LEVELS:
+            #print(node.tax_level)
+            # does not account for "no rank" and some other cases of "unclassified"
+            lineage["k" if node.tax_level == "superkingdom" else node.tax_level[0]] = node.taxonomy
+            print(node.tax_level)
+            #print(lineage)
+    print(lineage)
+    lineage = validate_lineage(lineage)
+    return lineage
+
+
+
+
+#this converts the kegg ID into the NCBI ID
+def convert_tax(converter_file):
+
+    with open(converter_file,'r') as tax_id:
+        converter={}
+        for line in tax_id:
+
+            toks=line.strip().split('\t')[1]
+
+            bits=toks.split(',')
+
+            toks=line.strip().split('\t')[1]
+
+            bits=toks.split(';')
+
+
+            lil_bits=bits[0].split(',')
+            #print(lil_bits)
+            if len(lil_bits) ==3:
+                kegg_id=lil_bits[0]
+                node_id=lil_bits[2]
+                NCBI_id=bits[1].strip()
+            elif len(lil_bits)<3:
+                lil_bits.insert(1,'X')
+                kegg_id=lil_bits[0]
+                node_id=lil_bits[2]
+                NCBI_id=bits[1].strip()
+            else:
+                break
+
+            converter[kegg_id]=(NCBI_id,node_id)
+        return converter
+
+
+def grab_node(aligned):
+        toks = aligned.strip().split('\t')
+        kegg_id = str(toks[1].split(':')[0])
+        #print(kegg_id)
+        try:
+            if kegg_id in converter:
+                return converter[kegg_id][1]
+        except KeyError:
+            pass
 
 
 def get_kaiju_db_dir(config):
@@ -53,7 +229,7 @@ def get_samples_from_dir(config):
         sample_id = fname.partition(".fastq")[0]
         if ".fq" in sample_id:
             sample_id = fname.partition(".fq")[0]
-        sample_id = sample_id.replace("_R1_001").replace("_R1", "").replace("_r1", "")
+        sample_id = sample_id.replace("_R1", "").replace("_r1", "")
         sample_id = sample_id.replace(".", "_").replace(" ", "_").replace("-", "_")
 
         # sample ID after rename
@@ -86,12 +262,13 @@ def get_samples_from_dir(config):
     for k, v in samples.items():
         samples_str += "%s: %s; %s\n" % (k, v["r1"], v["r2"])
     logger.info(samples_str)
-    return samples
+    # add sample into config
+    config["samples"] = samples
 
 
-# SAMPLES = get_samples_from_dir(config)
+get_samples_from_dir(config)
 KAIJUDB = get_kaiju_db_dir(config)
-CONDAENV = "environment.yml"
+CONDAENV = "envs/environment.yml"
 
 
 rule all:
@@ -99,23 +276,41 @@ rule all:
         expand("tables/{sample}_classifications.txt", sample=config["samples"].keys())
 
 
+# rule get_raw_fastq_qualities:
+#     input:
+#         unpack(lambda wildcards: config["samples"][wildcards.sample])
+#     output:
+#         r1 = "logs/{sample}_R1_eestats.txt",
+#         r2 = "logs/{sample}_R2_eestats.txt"
+#     conda:
+#         CONDAENV
+#     threads:
+#         2
+#     group:
+#         "sample_group"
+#     shell:
+#         """
+#         vsearch --threads 1 --fastq_eestats {input.r1} --output {output.r1} &
+#         vsearch --threads 1 --fastq_eestats {input.r2} --output {output.r2}
+#         """
+
+
 rule deduplicate_reads:
     input:
-        r1 = lambda wildcards: config["samples"][wildcards.sample][0],
-        r2 = lambda wildcards: config["samples"][wildcards.sample][1]
+        unpack(lambda wildcards: config["samples"][wildcards.sample])
     output:
         r1 = "quality_control/{sample}_00_deduplicate_R1.fastq.gz",
         r2 = "quality_control/{sample}_00_deduplicate_R2.fastq.gz"
     log:
         "logs/{sample}_deduplicate_reads.log"
-    # conda:
-    #     "%s/required_packages.yaml" % CONDAENV
     threads:
         config.get("threads", 1)
     resources:
         java_mem = config.get("java_mem", 60)
     conda:
         CONDAENV
+    group:
+        "sample_group"
     shell:
         """
         clumpify.sh in={input.r1} in2={input.r2} \
@@ -125,42 +320,26 @@ rule deduplicate_reads:
         """
 
 
-# rule apply_quality_filter:
-#     input:
-#         r1 = "quality_control/{sample}_00_deduplicate_R1.fastq.gz",
-#         r2 = "quality_control/{sample}_00_deduplicate_R2.fastq.gz"
-#     output:
-#         r1 = "quality_control/{sample}_01_trimmed_R1.fastq.gz",
-#         r2 = "quality_control/{sample}_01_trimmed_R2.fastq.gz"
-#     params:
-#         trimq = config.get("minimum_base_quality", 10),
-#         qtrim = config.get("qtrim", "rl"),
-#         minlength = config.get("minimum_passing_read_length", 51),
-#         minbasefrequency = config.get("minimum_base_frequency", 0.05)
-#     log:
-#         "logs/{sample}_apply_quality_filter.log"
-#     # conda:
-#     #     "%s/required_packages.yaml" % CONDAENV
-#     threads:
-#         config.get("threads", 1)
-#     resources:
-#         java_mem = config.get("java_mem", 60)
-#     shell:
-#         """
-#         bbduk.sh in={input.r1} in2={input.r2} \
-#             out={output.r1} out2={output.r2} \
-#             qout=33 trd=t trimq={params.trimq} qtrim={params.qtrim} \
-#             threads={threads} minlength={params.minlength} \
-#             minbasefrequency={params.minbasefrequency} \
-#             -Xmx{resources.java_mem}G 2> {log}
-#         """
+rule get_raw_fastq_qualities:
+    input:
+        "quality_control/{sample}_00_deduplicate_{idx}.fastq.gz"
+    output:
+        "logs/{sample}_{idx}_eestats.txt"
+    conda:
+        CONDAENV
+    threads:
+        1
+    group:
+        "sample_group"
+    shell:
+        """
+        vsearch --threads 1 --fastq_eestats {input} --output {output}
+        """
 
 
 rule build_decontamination_db:
     output:
         "ref/genome/1/summary.txt"
-    # conda:
-    #     "%s/required_packages.yaml" % CONDAENV
     params:
         k = config.get("contaminant_kmer_length", 13),
         refs_in = " ".join("ref_%s=%s" % (n, fa) for n, fa in [["PhiX", config["phix"]], ["rRNA", config["rRNA"]]])
@@ -193,14 +372,14 @@ rule run_decontamination:
         k = config.get("contaminant_kmer_length", 15),
     log:
         "logs/{sample}_decontamination.log"
-    # conda:
-    #     "%s/required_packages.yaml" % CONDAENV
     threads:
         config.get("threads", 1)
     resources:
         java_mem = config.get("java_mem", 60)
     conda:
         CONDAENV
+    group:
+        "sample_group"
     shell:
         """
         bbsplit.sh in1={input.r1} in2={input.r2} \
@@ -230,6 +409,8 @@ rule merge_sequences:
         java_mem = config.get("java_mem", 60)
     conda:
         CONDAENV
+    group:
+        "sample_group"
     shell:
         """
         bbmerge.sh threads={threads} k=60 extend2=60 iterations=5 \
@@ -251,6 +432,8 @@ rule run_taxonomic_classification:
         config.get("threads", 1)
     conda:
         CONDAENV
+    group:
+        "sample_group"
     shell:
         """
         kaiju -t {KAIJUDB}/nodes.dmp \
@@ -267,6 +450,8 @@ rule add_full_taxonomy:
         "kaiju/{sample}_aln_names.txt"
     conda:
         CONDAENV
+    group:
+        "sample_group"
     shell:
         """
         addTaxonNames -t {KAIJUDB}/nodes.dmp -n {KAIJUDB}/names.dmp \
@@ -300,6 +485,8 @@ rule run_functional_classification:
         config.get("threads", 1)
     conda:
         CONDAENV
+    group:
+        "sample_group"
     shell:
         """
         diamond blastx --threads {threads} --db {input.db} \
@@ -353,8 +540,7 @@ rule combine_sample_output:
                     tax_classifications[toks[1]] = [toks[3], toks[7]]
         with open(diamond_hits) as ifh, open(outtable, "w") as ofh:
             print("read_id", "aa_percent_id", "aa_alignment_length", "ko",
-                "product", "ec", "kaiju_alignment_length",
-                "kaiju_classification", "lca_classification",
+                "product", "ec", "tax_alignment_length", "tax_classification",
                 sep="\t", file=ofh)
             for seqid, seqgroup in groupby(ifh, key=lambda i: i.partition("\t")[0]):
                 for line in seqgroup:
@@ -367,8 +553,6 @@ rule combine_sample_output:
                         ko = ""
                         product = ""
                         ec = ""
-                        # TODO
-                        lca_classification = "k__?;p__?;c__?;o__?;f__?;g__?;s__?"
                     else:
                         try:
                             ko = gene_map[toks[1]]
@@ -381,11 +565,38 @@ rule combine_sample_output:
                             product = ""
                         aa_percent_id = toks[2]
                         aa_alignment_length = toks[3]
-                        # TODO
-                        lca_classification = your_lca_method()
                     # get taxonomy; this should never cause a KeyError
                     tax_alignment_length, tax_classification = tax_classifications[read_id]
                     print(read_id, aa_percent_id, aa_alignment_length, ko, product,
-                        ec, tax_alignment_length, tax_classification, lca_classification, sep="\t", file=ofh)
+                        ec, tax_alignment_length, tax_classification, sep="\t", file=ofh)
                     # just print the best HSP
                     break
+
+rule build_functional_tax_table:
+    input:
+        tables= expand('tables/{sample}_classifcations.txt',sample=config["samples"].keys()),
+        json= 'ko00001.json'
+    output:
+        "test.txt"
+    threads:
+        config.get("threads", 1)
+    conda:
+        CONDAENV
+
+    shell:
+        """
+        snake_ko.py --json-file-path {input.json} \
+        --classification-file-path {input.table}
+        --group-on ko -o {output} -ml -1 -mp -1
+        """
+
+
+
+# rule build_report:
+#     input:
+#         ee_stats = expand("logs/{sample}_{idx}_eestats.txt", sample=SAMPLES.keys(), idx=["R1", "R2"])
+#
+#     shell:
+#         """
+#         python scripts/build_report.py --
+#         """
