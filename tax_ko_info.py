@@ -66,6 +66,7 @@ def parse_kegg_json(json_file_path):
                             }
         kegg_pd = pd.DataFrame.from_dict(kegg_dict, orient="index").reset_index()
         kegg_pd = kegg_pd.rename(columns={"index": "KO"})
+        kegg_pd = kegg_pd[['KO','level_1','level_2','level_3']]
         return kegg_pd
 
 
@@ -183,7 +184,7 @@ def main(
     try:
         # print(grouped_sample_tbl.shape)
         print(kegg_pd.shape)
-        grouped_sample_tbl = grouped_sample_tbl.merge(kegg_pd, on="KO")
+        grouped_sample_tbl = grouped_sample_tbl.merge(kegg_pd, on="KO",how='outer')
     except:
         # print('didnt work')
         pass
