@@ -1,15 +1,15 @@
-data: /dtemp/emsls50064/data
-threads: 16
-java_mem: 96
+data: tests/data
+threads: 8
+java_mem: 16
 adapters: resources/adapters.fa
 phix: resources/phix.fa
 rRNA: resources/silva_rfam_all_rRNAs.fa
 # makeDB.sh -e
-kaijudb: /dtemp/mscfcons/brow015/kaiju_refs/kaiju_nr_euk_viral
+kaijudb: tests/refdata
 # cat ftp.bioinformatics.jp/kegg/genes/fasta/family_eukaryotes.pep.gz ftp.bioinformatics.jp/kegg/genes/fasta/genus_prokaryotes.pep.gz > temp
 # python scripts/filter_kegg_fa.py ftp.bioinformatics.jp/kegg/genes/misc/taxonomy temp > kegg_feukaryotes_gprokaryotes.faa
-diamonddb: /dtemp/mscfcons/brow015/perseq_refs/kegg_feukaryotes_gprokaryotes.faa
+diamonddb: tests/refdata/kegg_feukaryotes_gprokaryotes.faa
 # ftp.bioinformatics.jp/kegg/genes/links/genes_ko.list.gz
-gene2ko: /dtemp/mscfcons/brow015/perseq_refs/genes_ko.list.gz
+gene2ko: tests/refdata/genes_ko.list.gz
 # curl http://rest.kegg.jp/list/ko > $(date +"%Y%m%d")_ko_list.txt
-kodefs: /dtemp/mscfcons/brow015/perseq_refs/20180419_ko_list.txt
+kodefs: tests/refdata/20180419_ko_list.txt
