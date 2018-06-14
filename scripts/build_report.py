@@ -348,10 +348,12 @@ def parse_log_files(
     # tables_df = parse_classifications_tables(summary_tables)
     log_df = log_df.merge(classifications_per_sample, left_index=True, right_index=True)
     log_df.reset_index(inplace=True)
-    log_df.columns = ["Sample"] + log_df.columns[1:]
+    log_df.columns = ["Sample"] + log_df.columns.tolist()[1:]
+    header.insert(0, "Sample")
     header.extend(["Assigned Function", "Assigned Taxonomy", "Assigned Both"])
     colorscale = [[0, '#151d26'], [.5, 'white'], [1, 'white']]
-    fig = ff.create_table(log_df[header], colorscale=colorscale)
+    # fig = ff.create_table(log_df[header], colorscale=colorscale)
+    fig = ff.create_table(log_df, colorscale=colorscale)
     fig["data"][0]["opacity"] = 100
     fig["layout"]["margin"]["b"] = 30
     fig["layout"]["margin"]["r"] = 20
@@ -380,7 +382,7 @@ def build_quality_plot(r1_quality_files):
                 raw_qual_stats["R2"][sample_name].append(q)
     data = []
     for read_index, sample_data in raw_qual_stats.items():
-        color = "#1f77b4" if read_index == "R1" else "#d62728"
+        color = "rgba(31,119,180,0.3)" if read_index == "R1" else "rgba(214,39,40,0.3)"
         for sample_name, sample_stats in sample_data.items():
             data.append(go.Scatter(
                 x=list(range(1,len(sample_stats))),
@@ -519,15 +521,15 @@ Sequence Quality
 
     {quality_plot}
 
-Counts by Taxonomy
-******************
+Taxonomy by Count (Absolute)
+****************************
 
 .. raw:: html
 
     {div[Counts]}
 
-Percentage by Taxonomy
-**********************
+Taxonomy by Percent (Relative)
+******************************
 
 .. raw:: html
 
@@ -598,7 +600,6 @@ Per sample classifications in tables/ contain:
     tax_alignment_length  The length of the Kaiju hit
     tax_classification    The Kaiju classification in order of superkingdom, phylum, order, class, family, genus, species; "NA" for each taxonomic level not defined
     ====================  ==========================================================================================================================================
-
 
 Per taxonomy assignments in tables named taxonomy_<level>.txt contain:
 
