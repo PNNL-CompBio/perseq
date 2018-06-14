@@ -273,7 +273,8 @@ CONDAENV = "envs/environment.yml"
 
 rule all:
     input:
-        expand("tables/{sample}_classifications.txt", sample=config["samples"].keys())
+        expand("tables/{sample}_classifications.txt", sample=config["samples"].keys()),
+        expand("logs/{sample}_{idx}_eestats.txt", sample=config["samples"].keys(), idx=["R1", "R2"])
 
 
 # rule get_raw_fastq_qualities:
@@ -414,7 +415,8 @@ rule merge_sequences:
     shell:
         """
         bbmerge.sh threads={threads} k=60 extend2=60 iterations=5 \
-            reassemble=t shave rinse prealloc=t -Xmx{resources.java_mem}G \
+            ecctadpole=t reassemble=t shave rinse prealloc=t \
+            prefilter=10 -Xmx{resources.java_mem}G \
             loose=t qtrim2=t in={input.r1} in2={input.r2} \
             {params.adapters} out={output.merged} \
             outu={output.r1} outu2={output.r2} 2> {log}
@@ -481,6 +483,8 @@ rule run_functional_classification:
         db = config["diamonddb"] + ".dmnd"
     output:
         "diamond/{sample}_aln.txt"
+    params:
+        evalue = config.get("evalue", 0.00001)
     threads:
         config.get("threads", 1)
     conda:
@@ -490,8 +494,9 @@ rule run_functional_classification:
     shell:
         """
         diamond blastx --threads {threads} --db {input.db} \
-            --out {output} --outfmt 6 --query {input.fq} --strand both \
-            --unal 1 --top 3 --block-size 4 --index-chunks 1
+            --evalue {params.evalue} --out {output} --outfmt 6 \
+            --query {input.fq} --strand both --unal 1 --top 3 \
+            --block-size 4 --index-chunks 1
         """
 
 
@@ -576,7 +581,8 @@ rule combine_sample_output:
 # rule build_report:
 #     input:
 #         ee_stats = expand("logs/{sample}_{idx}_eestats.txt", sample=SAMPLES.keys(), idx=["R1", "R2"])
-#
+#     output:
+#         "summary.html"
 #     shell:
 #         """
 #         python scripts/build_report.py --
