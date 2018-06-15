@@ -268,12 +268,38 @@ def get_samples_from_dir(config):
 
 get_samples_from_dir(config)
 KAIJUDB = get_kaiju_db_dir(config)
-CONDAENV = "envs/environment.yml"
+CONDAENV = "environment.yml"
+
+
+def get_summaries():
+    # code to generate the possible files
+    file_paths = ["summaries/combined/function_ec_taxonomy_phylum.txt",
+    "summaries/combined/function_product_taxonomy_phylum.txt",
+    "summaries/combined/function_ko_taxonomy_phylum.txt",
+    "summaries/combined/function_ec_taxonomy_order.txt",
+    "summaries/combined/function_product_taxonomy_order.txt",
+    "summaries/combined/function_ko_taxonomy_order.txt",
+    "summaries/combined/function_ec_taxonomy_class.txt",
+    "summaries/combined/function_product_taxonomy_class.txt",
+    "summaries/combined/function_ko_taxonomy_class.txt",
+    "summaries/function/ko.txt",
+    "summaries/function/ec.txt",
+    "summaries/function/product.txt",
+    "summaries/taxonomy/taxonomy_phylum.txt",
+    "summaries/taxonomy/taxonomy_class.txt",
+    "summaries/taxonomy/taxonomy_order.txt"
+        ]
+    return file_paths
 
 
 rule all:
     input:
-        expand("tables/{sample}_classifications.txt", sample=config["samples"].keys())
+        #expand("tables/{sample}_classifications.txt", sample=config["samples"].keys())
+        #expand('function_{function}.txt',function=['ec','ko','product']),
+        #expand("function_{func}.txt",func=['ec','ko','product']),
+        #expand('taxonomy_{tax_classification}.txt',tax_classification=['phylum','class','order']),
+        #expand("taxonomy_{tax_classification}_function_{function}.txt",function=['ec','ko','product'],tax_classification=['phylum','class','order'])
+        get_summaries()
 
 
 # rule get_raw_fastq_qualities:
@@ -369,7 +395,7 @@ rule run_decontamination:
         minratio = config.get("contaminant_min_ratio", 0.80),
         minhits = config.get("contaminant_minimum_hits", 3),
         ambiguous = config.get("contaminant_ambiguous", "best"),
-        k = config.get("contaminant_kmer_length", 15),
+        k = config.get("contaminant_kmer_length", 12),
     log:
         "logs/{sample}_decontamination.log"
     threads:
@@ -406,7 +432,7 @@ rule merge_sequences:
     threads:
         config.get("threads", 1)
     resources:
-        java_mem = config.get("java_mem", 60)
+        java_mem = config.get("java_mem", 8)
     conda:
         CONDAENV
     group:
@@ -414,7 +440,8 @@ rule merge_sequences:
     shell:
         """
         bbmerge.sh threads={threads} k=60 extend2=60 iterations=5 \
-            reassemble=t shave rinse prealloc=t -Xmx{resources.java_mem}G \
+            ecctadpole=t reassemble=t shave rinse prealloc=t \
+            prefilter=10 -Xmx{resources.java_mem}G \
             loose=t qtrim2=t in={input.r1} in2={input.r2} \
             {params.adapters} out={output.merged} \
             outu={output.r1} outu2={output.r2} 2> {log}
@@ -572,12 +599,14 @@ rule combine_sample_output:
                     # just print the best HSP
                     break
 
-rule build_functional_tax_table:
+
+rule build_functional_table:
     input:
-        tables= expand('tables/{sample}_classifcations.txt',sample=config["samples"].keys()),
-        json= 'ko00001.json'
+        json= '/Users/zavo603/Documents/Nicki_files/perseq/ko00001.json',
+        tables= expand('tables/{sample}_classifications.txt',sample=config["samples"].keys())
     output:
-        "test.txt"
+        "summaries/function/{function}.txt"
+        #function='ec','product','ko'
     threads:
         config.get("threads", 1)
     conda:
@@ -586,10 +615,49 @@ rule build_functional_tax_table:
     shell:
         """
         snake_ko.py --json-file-path {input.json} \
-        --classification-file-path {input.table}
-        --group-on ko -o {output} -ml -1 -mp -1
+        --classification-file-path {input.tables} \
+        -g {wildcards.function} -o {output} -ml -1 -mp -1
         """
 
+rule build_tax_table:
+    input:
+        tables= expand('tables/{sample}_classifications.txt',sample=config["samples"].keys()),
+        json= '/Users/zavo603/Documents/Nicki_files/perseq/ko00001.json'
+    output:
+        #function='ec','product','ko'
+        "summaries/taxonomy/taxonomy_{tax_classification}.txt"
+
+    threads:
+        config.get("threads", 1)
+    conda:
+        CONDAENV
+
+    shell:
+        """
+        snake_ko.py --json-file-path {input.json} \
+        --classification-file-path {input.tables} \
+        -t {wildcards.tax_classification} -o {output} -ml -1 -mp -1
+        """
+
+rule build_functional_and_tax_table:
+    input:
+        tables= expand('tables/{sample}_classifications.txt',sample=config["samples"].keys()),
+        json= '/Users/zavo603/Documents/Nicki_files/perseq/ko00001.json'
+    output:
+        #expand("function_{function}_taxonomy_{tax_classification}.txt",function=['ec','ko','product'],tax_classification=['phylum','class','order']),
+        "summaries/combined/function_{function}_taxonomy_{tax_classification}.txt",
+
+    threads:
+        config.get("threads", 1)
+    conda:
+        CONDAENV
+
+    shell:
+        """
+        snake_ko.py --json-file-path {input.json} \
+        --classification-file-path {input.tables} \
+        -g {wildcards.function} tax_classification -t {wildcards.tax_classification} -o {output} -ml -1 -mp -1
+        """
 
 
 # rule build_report:

@@ -14,30 +14,17 @@ def parse_kegg_json(json_file_path):
         json_class = json.load(json_file)
         kegg_dict = dict()
         for root in json_class["children"]:
-            #         print("1", children)
-            #         print("1 name", test_list["name"])
             for level_1 in root["children"]:
-                # print("sg1", subgroup_1)
                 for level_2 in level_1["children"]:
-                    # print(level_2)
                     try:
                         for level_3 in level_2["children"]:
-                            # print("sg3", subgroup_3["name"], subgroup_2["name"], subgroup_1["name"], children["name"])
-                            # final print
                             ko = "ko:" + level_3["name"].partition(" ")[0]
                             if ko in kegg_dict:
-                                # if kegg_dict[ko]['level_1'].find(root['name']) == -1:
                                 kegg_dict[ko]["level_1"] += ";" + root["name"]
-                                # kegg_dict[ko]['level_2']+='/'+level_1['name']
-
-                                # if kegg_dict[ko]['level_2'].find(level_1['name']) == -1:
                                 kegg_dict[ko]["level_2"] += ";" + level_1["name"]
-                                # if kegg_dict[ko]['level_3'].find(level_2['name']) == -1:
                                 kegg_dict[ko]["level_3"] += ";" + level_2["name"]
 
                             else:
-
-                                # func=level_3['name'].partition(' ')[2]
                                 kegg_dict[ko] = {
                                     "level_1": root["name"],
                                     "level_2": level_1["name"],
@@ -48,14 +35,8 @@ def parse_kegg_json(json_file_path):
 
                         ko = "ko:K" + level_2["name"].partition(" ")[0]
                         if ko in kegg_dict:
-                            # if ko in kegg_dict:
-                            # if kegg_dict[ko]['level_1'].find(root['name']) == -1:
                             kegg_dict[ko]["level_1"] += ";" + root["name"]
-                            # kegg_dict[ko]['level_2']+='/'+level_1['name']
-
-                            # if kegg_dict[ko]['level_2'].find(level_1['name']) == -1:
                             kegg_dict[ko]["level_2"] += ";" + level_1["name"]
-                            # if kegg_dict[ko]['level_3'].find(level_2['name']) == -1:
                             kegg_dict[ko]["level_3"] += ";" + level_2["name"]
                         else:
                             # print(ko,level_2['name'])
@@ -114,9 +95,10 @@ def main(
     samples = []
     ## THIS WILL NEED TO BE REWORKED TO ACCOMODATE SNAKEMAKE
     kegg_pd = parse_kegg_json(json_path)
-    for f in os.listdir(classification_file_path):
-        f = os.path.join(classification_file_path, f)
+    for f in classification_file_path:
+        #f = os.path.join(classification_file_path, f)
         sample = os.path.basename(f).partition("_classifications.txt")[0]
+        #f = f.partition('/')[2]
         samples.append(sample)
         with open(f) as file:
             print("working on", f)
@@ -131,7 +113,7 @@ def main(
                     tax_ko["tax"].append(tax)
                 except IndexError:
                     tax_ko["tax"].append("NA")
-            # print(group_on)
+            #print(group_on)
             # print(group_with)
             if grouped_sample_tbl is None:
                 tax_ko_tbl = pd.DataFrame(tax_ko)
@@ -206,6 +188,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-cfp",
         "--classification-file-path",
+        nargs='+',
         help="path to the _classification.txt files",
     )
     parser.add_argument(
