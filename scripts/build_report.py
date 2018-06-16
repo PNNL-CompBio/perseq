@@ -148,7 +148,6 @@ def compile_summary_df(classification_tables, tax_levels= ["phylum", "class", "o
     samples = []
     dfs = {}
     classifications_per_sample = {}
-    # summary_counts = Counter()
     for classification_table in classification_tables:
         sample = get_sample(classification_table, "_classifications.txt")
         parsed_taxonomy = parse_classifications_for_taxonomy(classification_table)
@@ -190,6 +189,8 @@ def make_plots(observations, summary_type):
             x=observations[summary_type]["phylum"].index,
             y=observations[summary_type]["phylum"][tax],
             name=tax,
+            text=tax,
+            hoverinfo="text+y",
             visible=True,
         )
         for tax in observations[summary_type]["phylum"].columns.tolist()
@@ -198,6 +199,8 @@ def make_plots(observations, summary_type):
             x=observations[summary_type]["class"].index,
             y=observations[summary_type]["class"][tax],
             name=tax,
+            text=tax,
+            hoverinfo="text+y",
             visible=False,
         )
         for tax in observations[summary_type]["class"].columns.tolist()
@@ -206,6 +209,8 @@ def make_plots(observations, summary_type):
             x=observations[summary_type]["order"].index,
             y=observations[summary_type]["order"][tax],
             name=tax,
+            text=tax,
+            hoverinfo="text+y",
             visible=False,
         )
         for tax in observations[summary_type]["order"].columns.tolist()
