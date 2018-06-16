@@ -14,7 +14,11 @@ from snakemake.utils import logger, report
 PLOTLY_PARAMS = dict(
     include_plotlyjs=False, show_link=False, output_type="div", image_height=700
 )
+
+# data tables and then overall page style
 STYLE = """
+    <link rel="stylesheet" type="text/css" href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.1.1/css/bootstrap.css"/>
+    <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.10.18/css/dataTables.bootstrap4.min.css"/>
     <style type="text/css">
     body{font-family:Helvetica,arial,sans-serif;font-size:14px;line-height:1.6;padding-bottom:10px;background-color:#fff;color:#333;margin:0}body>div .section::before{content:"";display:block;height:80px;margin:-80px 0 0}#summary::before{margin:0}.topic-title{font-size:18pt}body>div>.section{margin-left:22%;margin-bottom:3em}div.section{margin-right:20px}#contents>p{display:none}button,li p.first{display:inline-block}#contents{margin-top:80px;padding-left:0;width:20%;background-color:#f1f1f1;height:100%;position:fixed;overflow:auto}#contents ul{list-style-type:none}#contents ul>li{font-size:14pt}#contents ul>li a:hover{color:#151d26}button,h1.title{color:#fff;background-color:#151d26}#contents ul>li>ul>li{font-size:12pt}h1.title{margin-top:0;position:fixed;z-index:10;padding:20px;width:100%}code,table tr:nth-child(2n),tt{background-color:#f8f8f8}.one-col{min-width:310px;height:500px;margin:0 auto}.two-col-left{height:300px;width:49%;float:left}.two-col-right{height:300px;width:49%;float:right}button{margin:0 5px 0 0;padding:5px 25px;font-size:18px;line-height:1.8;appearance:none;box-shadow:none;border-radius:3px;border:none}button:focus{outline:0}button:hover{background-color:#4183C4}button:active{background-color:#27496d}.legend-rect{width:20px;height:20px;margin-right:8px;margin-left:20px;float:left;-webkit-border-radius:2px;border-radius:2px}a{color:#4183C4;text-decoration:none}a.absent{color:#c00}a.anchor{padding-left:30px;margin-left:-30px;cursor:pointer;position:absolute;top:0;left:0;bottom:0}dl,dl dt,dl dt:first-child,hr,table,table tr{padding:0}table tr td,table tr th{border:1px solid #ccc;text-align:left;padding:6px 13px}h1,h2,h3,h4,h5,h6{margin:20px 0 10px;padding:0;font-weight:700;-webkit-font-smoothing:antialiased;cursor:text;position:relative}h1:hover a.anchor,h2:hover a.anchor,h3:hover a.anchor,h4:hover a.anchor,h5:hover a.anchor,h6:hover a.anchor{text-decoration:none}h1 code,h1 tt,h2 code,h2 tt,h3 code,h3 tt,h4 code,h4 tt,h5 code,h5 tt,h6 code,h6 tt{font-size:inherit}h1{font-size:28px;color:#151d26;border-bottom:1px solid #ccc}h2{font-size:24px;color:#000}h3{font-size:18px}h4{font-size:16px}dl dt,h5,h6{font-size:14px}h6{color:#777}blockquote,dl,li,ol,p,pre,table,ul{margin:15px 0}hr{background:url(http://tinyurl.com/bq5kskr) repeat-x;border:0;color:#ccc;height:4px}a:first-child h1,a:first-child h2,a:first-child h3,a:first-child h4,a:first-child h5,a:first-child h6{margin-top:0;padding-top:0}h1 p,h2 p,h3 p,h4 p,h5 p,h6 p{margin-top:0}dl dt{font-weight:700;font-style:italic;margin:15px 0 5px}blockquote>:first-child,dl dd>:first-child,dl dt>:first-child,table tr td :first-child,table tr th :first-child{margin-top:0}blockquote>:last-child,dl dd>:last-child,dl dt>:last-child{margin-bottom:0}dl dd{margin:0 0 15px;padding:0 15px}blockquote{border-left:4px solid #ddd;padding:0 15px;color:#777}table{border-spacing:0;border-collapse:collapse}table tr{border-top:1px solid #ccc;background-color:#fff;margin:0}table tr th{font-weight:700;margin:0}table tr td{margin:0}table tr td :last-child,table tr th :last-child{margin-bottom:0}img{max-width:100%}span.frame{display:block;overflow:hidden}span.frame>span{border:1px solid #ddd;display:block;float:left;overflow:hidden;margin:13px 0 0;padding:7px;width:auto}span.frame span img{display:block;float:left}span.frame span span{clear:both;color:#333;display:block;padding:5px 0 0}span.align-center{display:block;overflow:hidden;clear:both}span.align-center>span{display:block;overflow:hidden;margin:13px auto 0;text-align:center}span.align-center span img{margin:0 auto;text-align:center}span.align-right{display:block;overflow:hidden;clear:both}span.align-right>span{display:block;overflow:hidden;margin:13px 0 0;text-align:right}span.align-right span img{margin:0;text-align:right}span.float-left{display:block;margin-right:13px;overflow:hidden;float:left}span.float-left span{margin:13px 0 0}span.float-right{display:block;margin-left:13px;overflow:hidden;float:right}span.float-right>span{display:block;overflow:hidden;margin:13px auto 0;text-align:right}code,tt{margin:0 2px;padding:0 5px;white-space:nowrap;border:1px solid #eaeaea;border-radius:3px}pre code{margin:0;padding:0;white-space:pre;background:0 0}.highlight pre,pre{background-color:#f8f8f8;border:1px solid #ccc;font-size:13px;line-height:19px;overflow:auto;padding:6px 10px;border-radius:3px}pre code,pre tt{background-color:transparent;border:none}div#metadata{text-align:right}
     </style>
@@ -71,16 +75,16 @@ def parse_classifications_for_taxonomy(path):
         for i, line in enumerate(fh, start=1):
             toks = line.strip("\r\n").split("\t")
             if toks[3]:
-                summary_counter.update(["Assigned Function"])
+                summary_counter.update(["Assigned\nFunction"])
                 if toks[7]:
-                    summary_counter.update(["Assigned Both"])
+                    summary_counter.update(["Assigned\nBoth"])
             if toks[7]:
                 taxonomy_counter.update([toks[7]])
                 taxonomy = [j.strip() for j in toks[7].split(";")]
                 taxonomy_level_counter["order"].update([taxonomy[3]])
                 taxonomy_level_counter["class"].update([taxonomy[2]])
                 taxonomy_level_counter["phylum"].update([taxonomy[1]])
-                summary_counter.update(["Assigned Taxonomy"])
+                summary_counter.update(["Assigned\nTaxonomy"])
     idx = shannon_index(np.array(list(taxonomy_counter.values())))
     return dict(
         taxonomy_level_counter=taxonomy_level_counter,
@@ -316,12 +320,7 @@ def parse_log_files(
 ):
     logger.info("Parsing log files for summary table")
     header = [
-        "Initial Read Count",
-        "Deduplication",
-        "Decontamination",
-        "Pairs Joined",
-        "Join Rate",
-        "Average Insert Size",
+        "Sequences", "Unique", "Clean", "Pairs\nJoined", "Join\nRate", "Average\nInsert"
     ]
     count_table = defaultdict(list)
     # initial read count from first step's log
@@ -344,30 +343,21 @@ def parse_log_files(
         count_table[sample].extend(parse_merge_file(merge_log))
     log_df = pd.DataFrame.from_dict(count_table, orient="index")
     log_df.columns = header
-    # parse the summary tables for assignments
-    # tables_df = parse_classifications_tables(summary_tables)
     log_df = log_df.merge(classifications_per_sample, left_index=True, right_index=True)
     log_df.reset_index(inplace=True)
-    log_df.columns = ["Sample"] + log_df.columns.tolist()[1:]
     header.insert(0, "Sample")
-    header.extend(["Assigned Function", "Assigned Taxonomy", "Assigned Both"])
-    colorscale = [[0, '#151d26'], [.5, 'white'], [1, 'white']]
-    # fig = ff.create_table(log_df[header], colorscale=colorscale)
-    fig = ff.create_table(log_df, colorscale=colorscale)
-    fig["data"][0]["opacity"] = 100
-    fig["layout"]["margin"]["b"] = 30
-    fig["layout"]["margin"]["r"] = 20
-    sample_summary_table = offline.plot(
-        fig,
-        **PLOTLY_PARAMS
+    header.extend(["Assigned\nFunction", "Assigned\nTaxonomy", "Assigned\nBoth"])
+    log_df.columns = header
+    sample_summary_table = log_df[header].to_html(
+        index=False, bold_rows=False, classes=["table", "table-bordered"], table_id="summaryTable"
     )
-    # return log_df[header].to_html().replace("\n", "\n" + 10 * " ")
+    sample_summary_table = sample_summary_table.replace("\n", "\n" + 10 * " ")
     return sample_summary_table
 
 
 def build_quality_plot(r1_quality_files):
     logger.info("Building Sequence Quality plots")
-    raw_qual_stats = defaultdict(lambda: defaultdict(list))
+    raw_qual_stats = defaultdict( lambda: defaultdict(list))
     for r1_ee_file in r1_quality_files:
         sample_name = get_sample(r1_ee_file, "_R1_eestats.txt")
         r2_ee_file = "_R2".join(r1_ee_file.rsplit("_R1", 1))
@@ -384,25 +374,23 @@ def build_quality_plot(r1_quality_files):
     for read_index, sample_data in raw_qual_stats.items():
         color = "rgba(31,119,180,0.3)" if read_index == "R1" else "rgba(214,39,40,0.3)"
         for sample_name, sample_stats in sample_data.items():
-            data.append(go.Scatter(
-                x=list(range(1,len(sample_stats))),
-                y=sample_stats,
-                name=sample_name,
-                text=sample_name,
-                hoverinfo="text+x+y",
-                legendgroup=read_index,
-                mode="lines",
-                line=dict(
-                    color=color,
-                    dash="solid"
-                    )
+            data.append(
+                go.Scatter(
+                    x=list(range(1, len(sample_stats))),
+                    y=sample_stats,
+                    name=sample_name,
+                    text=sample_name,
+                    hoverinfo="text+x+y",
+                    legendgroup=read_index,
+                    mode="lines",
+                    line=dict(color=color, dash="solid"),
                 )
             )
     layout = go.Layout(
         title='Mean Quality Scores for R1 and R2',
         margin={"b": "auto", "r": "auto"},
-        xaxis={"title":"Position"},
-        yaxis={"title":"Quality (Phred score)"},
+        xaxis={"title": "Position"},
+        yaxis={"title": "Quality (Phred score)"},
         hovermode="closest",
         showlegend=False,
         autosize=True,
@@ -414,10 +402,7 @@ def build_quality_plot(r1_quality_files):
                 yref="paper",
                 text="Forward",
                 showarrow=False,
-                font=dict(
-                    size=16,
-                    color="#ffffff"
-                ),
+                font=dict(size=16, color="#ffffff"),
                 align="left",
                 borderpad=4,
                 bgcolor="#1f77b4",
@@ -429,21 +414,15 @@ def build_quality_plot(r1_quality_files):
                 yref="paper",
                 text="Reverse",
                 showarrow=False,
-                font=dict(
-                    size=16,
-                    color='#ffffff'
-                ),
+                font=dict(size=16, color='#ffffff'),
                 align='left',
                 borderpad=4,
                 bgcolor="#d62728",
-            )
-        ]
+            ),
+        ],
     )
     fig = go.Figure(data=data, layout=layout)
-    quality_plot = offline.plot(
-        fig,
-        **PLOTLY_PARAMS
-    )
+    quality_plot = offline.plot(fig, **PLOTLY_PARAMS)
     return quality_plot
 
 
@@ -488,6 +467,14 @@ def main(
 
     {STYLE}
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.3.1.min.js"></script>
+    <script src="https://cdn.datatables.net/1.10.18/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.10.18/js/dataTables.bootstrap4.min.js"></script>
+    <script>
+    $(document).ready( function () {{
+    $('#summaryTable').DataTable();
+    }} );
+    </script>
 
 
 =============================================================
@@ -504,15 +491,14 @@ PerSeq_ - Per sequence functional and taxonomic assignments
 Summary
 -------
 
-Samples are sorted based on their Shannon index calculated from taxonomically
-annotated sequences. The order is most to least diverse.
-
 Sequence Counts
 ***************
 
 .. raw:: html
 
+    <div style="overflow-x:auto;">
     {html_tbl}
+    </div>
 
 Sequence Quality
 ****************
@@ -523,6 +509,9 @@ Sequence Quality
 
 Taxonomy by Count (Absolute)
 ****************************
+
+Samples are sorted based on their Shannon index calculated from taxonomically
+annotated sequences. The order is most to least diverse.
 
 .. raw:: html
 
