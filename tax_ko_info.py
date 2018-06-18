@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import logging
 import os
 import pandas as pd
 import json
@@ -7,6 +8,8 @@ import argparse
 
 # @click.command()
 # @click.argument('json_file')
+
+logging.basicConfig(filename="tax_ko_info.log", filemode="w", level=logging.INFO)
 
 
 def parse_kegg_json(json_file_path):
@@ -47,7 +50,7 @@ def parse_kegg_json(json_file_path):
                             }
         kegg_pd = pd.DataFrame.from_dict(kegg_dict, orient="index").reset_index()
         kegg_pd = kegg_pd.rename(columns={"index": "KO"})
-        kegg_pd = kegg_pd[['KO','level_1','level_2','level_3']]
+        kegg_pd = kegg_pd[["KO", "level_1", "level_2", "level_3"]]
         return kegg_pd
 
 
@@ -76,7 +79,7 @@ def main(
     # align_len=40
     # json_path='/Users/zavo603/Documents/Nicki_files/perseq/ko00001.json'
     # path='/Users/zavo603/Documents/Nicki_files/perseq/tables/'
-    if type(group_on) == str:
+    if isinstance(group_on, str):
         group_on = [group_on]
     group_with = list(group_on)
     group_on = list(group_on)
@@ -92,16 +95,20 @@ def main(
         "species": 7,
     }
     grouped_sample_tbl = None
-    samples = []
+    # samples = []
     ## THIS WILL NEED TO BE REWORKED TO ACCOMODATE SNAKEMAKE
+    logging.info("Parsing KEGG JSON")
     kegg_pd = parse_kegg_json(json_path)
+    logging.info("Begining to parse Classification Tables")
     for f in classification_file_path:
-        #f = os.path.join(classification_file_path, f)
+
+        # f = os.path.join(classification_file_path, f)
         sample = os.path.basename(f).partition("_classifications.txt")[0]
-        #f = f.partition('/')[2]
-        samples.append(sample)
+        # f = f.partition('/')[2]
+        # samples.append(sample)
         with open(f) as file:
-            print("working on", f)
+            logging.info("Working on %s" % sample)
+            # print("working on", f)
             tax_ko = {"tax": []}
             next(file)
             for line in file:
@@ -113,7 +120,7 @@ def main(
                     tax_ko["tax"].append(tax)
                 except IndexError:
                     tax_ko["tax"].append("NA")
-            #print(group_on)
+            # print(group_on)
             # print(group_with)
             if grouped_sample_tbl is None:
                 tax_ko_tbl = pd.DataFrame(tax_ko)
@@ -165,13 +172,13 @@ def main(
 
     try:
         # print(grouped_sample_tbl.shape)
-        print(kegg_pd.shape)
-        grouped_sample_tbl = grouped_sample_tbl.merge(kegg_pd, on="KO",how='outer')
+        grouped_sample_tbl = grouped_sample_tbl.merge(kegg_pd, on="KO", how="outer")
     except:
         # print('didnt work')
         pass
-
+    logging.info("Writing to %s" % output)
     grouped_sample_tbl.to_csv(output, sep="\t", index=False)
+    logging.info("Done")
 
 
 # def main():
@@ -182,13 +189,17 @@ def main(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Generates a tab seperated file of the desired functional information"
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        description="Generates a tab seperated file of the desired functional information",
     )
-    parser.add_argument("-jfp", "--json-file-path", help="path to json file of KOs")
+    parser.add_argument(
+        "-jfp", "--json-file-path", required=True, help="path to json file of KOs"
+    )
     parser.add_argument(
         "-cfp",
         "--classification-file-path",
-        nargs='+',
+        nargs="+",
+        required=True,
         help="path to the _classification.txt files",
     )
     parser.add_argument(
@@ -205,21 +216,17 @@ if __name__ == "__main__":
             "species",
         ],
         default="phylum",
-        help="taxa level to show default: phylum",
+        help="taxa level to show",
     )
     parser.add_argument(
-        "-mp",
-        "--min-perc-id",
-        type=int,
-        default=50,
-        help="lowest percent ID to retain default: 50",
+        "-mp", "--min-perc-id", type=int, default=50, help="lowest percent ID to retain"
     )
     parser.add_argument(
         "-ml",
         "--min-len",
         type=int,
         default=40,
-        help="lowest alignment length to retain default: 40",
+        help="lowest alignment length to retain",
     )
     # parser.add_argument('--function',
     #                    help='functional aspect of species to reatin(ko,ec,or product) default: ko')
@@ -229,14 +236,10 @@ if __name__ == "__main__":
         choices=["tax_classification", "ko", "ec", "product"],
         nargs="+",
         default="tax_classification",
-        help="Information to be retained(taxonomy, function, etc.). Must match the file headers default: tax_classifcation",
+        help="Information to be retained(taxonomy, function, etc.). Must match the file headers",
     )
     parser.add_argument(
-        "-o",
-        "--output",
-        default="tax_ko_out.txt",
-        type=str,
-        help="Output table name default: tax_ko_out.txt",
+        "-o", "--output", default="tax_ko_out.txt", type=str, help="Output table name"
     )
     args = parser.parse_args()
     main(
