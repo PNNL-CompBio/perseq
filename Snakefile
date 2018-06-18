@@ -294,12 +294,15 @@ def get_summaries():
 
 rule all:
     input:
+
         #expand("tables/{sample}_classifications.txt", sample=config["samples"].keys())
         #expand('function_{function}.txt',function=['ec','ko','product']),
         #expand("function_{func}.txt",func=['ec','ko','product']),
         #expand('taxonomy_{tax_classification}.txt',tax_classification=['phylum','class','order']),
         #expand("taxonomy_{tax_classification}_function_{function}.txt",function=['ec','ko','product'],tax_classification=['phylum','class','order'])
         get_summaries()
+        expand("tables/{sample}_classifications.txt", sample=config["samples"].keys()),
+        expand("logs/{sample}_{idx}_eestats.txt", sample=config["samples"].keys(), idx=["R1", "R2"])
 
 
 # rule get_raw_fastq_qualities:
@@ -432,7 +435,7 @@ rule merge_sequences:
     threads:
         config.get("threads", 1)
     resources:
-        java_mem = config.get("java_mem", 8)
+        java_mem = config.get("java_mem", 60)
     conda:
         CONDAENV
     group:
@@ -508,6 +511,8 @@ rule run_functional_classification:
         db = config["diamonddb"] + ".dmnd"
     output:
         "diamond/{sample}_aln.txt"
+    params:
+        evalue = config.get("evalue", 0.00001)
     threads:
         config.get("threads", 1)
     conda:
@@ -517,8 +522,9 @@ rule run_functional_classification:
     shell:
         """
         diamond blastx --threads {threads} --db {input.db} \
-            --out {output} --outfmt 6 --query {input.fq} --strand both \
-            --unal 1 --top 3 --block-size 4 --index-chunks 1
+            --evalue {params.evalue} --out {output} --outfmt 6 \
+            --query {input.fq} --strand both --unal 1 --top 3 \
+            --block-size 4 --index-chunks 1
         """
 
 
@@ -619,6 +625,7 @@ rule build_functional_table:
         -g {wildcards.function} -o {output} -ml -1 -mp -1
         """
 
+        
 rule build_tax_table:
     input:
         tables= expand('tables/{sample}_classifications.txt',sample=config["samples"].keys()),
@@ -639,6 +646,7 @@ rule build_tax_table:
         -t {wildcards.tax_classification} -o {output} -ml -1 -mp -1
         """
 
+        
 rule build_functional_and_tax_table:
     input:
         tables= expand('tables/{sample}_classifications.txt',sample=config["samples"].keys()),
@@ -659,11 +667,13 @@ rule build_functional_and_tax_table:
         -g {wildcards.function} tax_classification -t {wildcards.tax_classification} -o {output} -ml -1 -mp -1
         """
 
-
+        
 # rule build_report:
 #     input:
 #         ee_stats = expand("logs/{sample}_{idx}_eestats.txt", sample=SAMPLES.keys(), idx=["R1", "R2"])
-#
+#     output:
+#         "summary.html"
+
 #     shell:
 #         """
 #         python scripts/build_report.py --
