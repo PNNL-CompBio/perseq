@@ -8,7 +8,7 @@ rRNA: resources/silva_rfam_all_rRNAs.fa
 kaijudb: tests/refdata
 # cat ftp.bioinformatics.jp/kegg/genes/fasta/family_eukaryotes.pep.gz ftp.bioinformatics.jp/kegg/genes/fasta/genus_prokaryotes.pep.gz > temp
 # python scripts/filter_kegg_fa.py ftp.bioinformatics.jp/kegg/genes/misc/taxonomy temp > kegg_feukaryotes_gprokaryotes.faa
-diamonddb: tests/refdata/kegg_feukaryotes_gprokaryotes.faa
+diamonddb: tests/refdata/kegg_subset.faa
 # ftp.bioinformatics.jp/kegg/genes/links/genes_ko.list.gz
 gene2ko: tests/refdata/genes_ko.list.gz
 # curl http://rest.kegg.jp/list/ko > $(date +"%Y%m%d")_ko_list.txt
