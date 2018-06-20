@@ -1,17 +1,18 @@
 """
 per sequence classifications
 """
-
 import os
 import sys
-from snakemake.logging import logger
-from snakemake.utils import report
+
 from collections import Counter, defaultdict, deque, OrderedDict
 
+from snakemake.logging import logger
+from snakemake.utils import report
 
-##tree class
+
+TAX_LEVELS = ["superkingdom", "phylum", "class", "order", "family", "genus", "species"]
+
 class Node(object):
-
     def __init__(self, taxonomy, node_id, parent_id, tax_level):
         """Represents a node within a tree.
         Args:
@@ -27,8 +28,8 @@ class Node(object):
         self.parent_id = parent_id
         self.tax_level = tax_level
 
-class Tree(object):
 
+class Tree(object):
     def __init__(self, tree_file):
         """Builds reference dictionary of Taxonomy Name, Taxonomy ID, and Parent Taxonomy ID."""
         self.tree = defaultdict(dict)
@@ -42,9 +43,6 @@ class Tree(object):
                     continue
                 self.add_node(toks[1], toks[0], toks[2], toks[3])
 
-
-
-
     def add_node(self, taxonomy, node_id, parent_id, tax_level):
         """Adds node to tree dictionary.
         Args:
@@ -53,47 +51,38 @@ class Tree(object):
             parent_id (str): the parent's taxonomy id
             tax_level (str): the taxonomic level for this node_id
         """
-
         # taxonomy id to node mapping; ensures unique nodes despite non-unique names
         self.tree[node_id] = Node(taxonomy, node_id, parent_id, tax_level)
 
-
     def lca(self, taxonomies, threshold=1.):
-
+        """
+        taxonomies (list): FIXME
+        """
         if threshold > 1:
             threshold = 1
         elif threshold < 0.01:
             # 10% as the minimum
             threshold = 0.1
-
         count_target = len(taxonomies) * threshold
+        # FIXME this should be a Counter
         count_taxonomies = defaultdict(int)
-
         for taxonomy in taxonomies:
-            #print('tax',taxonomy)
-
             try:
                 current_taxonomy = self.tree[taxonomy].node_id
-                #print(current_taxonomy)
             except AttributeError:
                 # dict when key not present
                 # taxonomy represented in the reference database, but is not present in the tree
                 continue
 
             while not current_taxonomy == "1":
-                #print('curtx',current_taxonomy)
                 count_taxonomies[current_taxonomy] += 1
                 if count_taxonomies[current_taxonomy] >= count_target:
-                    #print('target found')
                     return self.tree[current_taxonomy].node_id
-
                 # traverse up tree
                 current_taxonomy = self.tree[current_taxonomy].parent_id
         return "1"
 
     def taxonomic_lineage(self, taxonomy):
-
-        # a large portion of ORFs
         if taxonomy == "1":
             return [taxonomy]
 
@@ -104,84 +93,71 @@ class Tree(object):
             lineage.insert(0, taxonomy)
         return lineage
 
-
-
-
-TAX_LEVELS=["superkingdom", "phylum", "class", "order", "family", "genus", "species"]
 def validate_lineage(lineage, sep=";"):
-
     levels = ["k" if tax_level == "superkingdom" else tax_level[0] for tax_level in TAX_LEVELS]
-    #print(levels)
     valid_lineage = []
     for idx in levels:
-        # removes commas in tax names
-        #print(idx)
         valid_lineage.append("%s__%s" % (idx, lineage.get(idx, "?").replace(",", "")))
     return sep.join(valid_lineage)
 
-#calls validate lineage
 def lineage_form(lca):
-
+    """
+    calls validate lineage <-- technically, yes, but something about what
+    it accepts as a parameter and maybe something about what this method
+    returns would be more appropriate
+    """
     lineage = {}
+    # FIXME bug
     for item in test.taxonomic_lineage(lca):
+        # FIXME
         node = test.tree[item]
-        #print(node)
         if node.tax_level in TAX_LEVELS:
-            #print(node.tax_level)
             # does not account for "no rank" and some other cases of "unclassified"
             lineage["k" if node.tax_level == "superkingdom" else node.tax_level[0]] = node.taxonomy
-            print(node.tax_level)
-            #print(lineage)
-    print(lineage)
     lineage = validate_lineage(lineage)
     return lineage
 
-
-
-
-#this converts the kegg ID into the NCBI ID
 def convert_tax(converter_file):
+    """converts the kegg ID into the NCBI ID"""
 
-    with open(converter_file,'r') as tax_id:
-        converter={}
+    with open(converter_file) as tax_id:
+        converter = {}
         for line in tax_id:
 
+            # FIXME something doesn't seem right here
             toks=line.strip().split('\t')[1]
-
             bits=toks.split(',')
-
             toks=line.strip().split('\t')[1]
-
             bits=toks.split(';')
-
-
             lil_bits=bits[0].split(',')
-            #print(lil_bits)
-            if len(lil_bits) ==3:
-                kegg_id=lil_bits[0]
-                node_id=lil_bits[2]
-                NCBI_id=bits[1].strip()
-            elif len(lil_bits)<3:
-                lil_bits.insert(1,'X')
-                kegg_id=lil_bits[0]
-                node_id=lil_bits[2]
-                NCBI_id=bits[1].strip()
+
+            if len(lil_bits) == 3:
+                kegg_id = lil_bits[0]
+                node_id = lil_bits[2]
+                NCBI_id = bits[1].strip()
+            elif len(lil_bits) < 3:
+                # FIXME why?
+                lil_bits.insert(1, 'X')
+                kegg_id = lil_bits[0]
+                node_id = lil_bits[2]
+                NCBI_id = bits[1].strip()
             else:
                 break
 
-            converter[kegg_id]=(NCBI_id,node_id)
+            converter[kegg_id] = (NCBI_id, node_id)
         return converter
 
-
 def grab_node(aligned):
-        toks = aligned.strip().split('\t')
-        kegg_id = str(toks[1].split(':')[0])
-        #print(kegg_id)
-        try:
-            if kegg_id in converter:
-                return converter[kegg_id][1]
-        except KeyError:
-            pass
+    # FIXME bug
+    toks = aligned.strip().split('\t')
+    kegg_id = str(toks[1].split(':')[0])
+    # FIXME why a try/except if we're also checking for the key's existence?
+    try:
+        # FIXME another bug
+        if kegg_id in converter:
+            return converter[kegg_id][1]
+    except KeyError:
+        pass
 
 
 def get_kaiju_db_dir(config):
@@ -268,7 +244,7 @@ def get_samples_from_dir(config):
 
 get_samples_from_dir(config)
 KAIJUDB = get_kaiju_db_dir(config)
-CONDAENV = "environment.yml"
+CONDAENV = "envs/environment.yml"
 
 
 def get_summaries():
@@ -625,7 +601,7 @@ rule build_functional_table:
         -g {wildcards.function} -o {output} -ml -1 -mp -1
         """
 
-        
+
 rule build_tax_table:
     input:
         tables= expand('tables/{sample}_classifications.txt',sample=config["samples"].keys()),
@@ -646,7 +622,7 @@ rule build_tax_table:
         -t {wildcards.tax_classification} -o {output} -ml -1 -mp -1
         """
 
-        
+
 rule build_functional_and_tax_table:
     input:
         tables= expand('tables/{sample}_classifications.txt',sample=config["samples"].keys()),
@@ -667,7 +643,7 @@ rule build_functional_and_tax_table:
         -g {wildcards.function} tax_classification -t {wildcards.tax_classification} -o {output} -ml -1 -mp -1
         """
 
-        
+
 # rule build_report:
 #     input:
 #         ee_stats = expand("logs/{sample}_{idx}_eestats.txt", sample=SAMPLES.keys(), idx=["R1", "R2"])
