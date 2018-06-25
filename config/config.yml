@@ -12,4 +12,4 @@ diamonddb: tests/refdata/kegg_subset.faa
 # ftp.bioinformatics.jp/kegg/genes/links/genes_ko.list.gz
 gene2ko: tests/refdata/genes_ko.list.gz
 # curl http://rest.kegg.jp/list/ko > $(date +"%Y%m%d")_ko_list.txt
-kodefs: tests/refdata/20180419_ko_list.txt
+kodefs: tests/refdata/ko_list.txt

@@ -248,66 +248,32 @@ CONDAENV = "envs/environment.yml"
 
 
 def get_summaries():
+    function = ["ec", "ko", "product"]
+    taxonomy = ["phylum", "class", "order"]
     # code to generate the possible files
-    file_paths = ["summaries/combined/function_ec_taxonomy_phylum.txt",
-    "summaries/combined/function_product_taxonomy_phylum.txt",
-    "summaries/combined/function_ko_taxonomy_phylum.txt",
-    "summaries/combined/function_ec_taxonomy_order.txt",
-    "summaries/combined/function_product_taxonomy_order.txt",
-    "summaries/combined/function_ko_taxonomy_order.txt",
-    "summaries/combined/function_ec_taxonomy_class.txt",
-    "summaries/combined/function_product_taxonomy_class.txt",
-    "summaries/combined/function_ko_taxonomy_class.txt",
-    "summaries/function/ko.txt",
-    "summaries/function/ec.txt",
-    "summaries/function/product.txt",
-    "summaries/taxonomy/taxonomy_phylum.txt",
-    "summaries/taxonomy/taxonomy_class.txt",
-    "summaries/taxonomy/taxonomy_order.txt"
-        ]
+    file_paths = expand("summaries/combined/{function}_{taxonomy}.txt",
+        function=function, taxonomy=taxonomy)
+    file_paths.extend(expand("summaries/function/{function}.txt",
+        function=function))
+    file_paths.extend(expand("summaries/taxonomy/{taxonomy}.txt",
+        taxonomy=taxonomy))
     return file_paths
 
 
 rule all:
     input:
-
-        #expand("tables/{sample}_classifications.txt", sample=config["samples"].keys())
-        #expand('function_{function}.txt',function=['ec','ko','product']),
-        #expand("function_{func}.txt",func=['ec','ko','product']),
-        #expand('taxonomy_{tax_classification}.txt',tax_classification=['phylum','class','order']),
-        #expand("taxonomy_{tax_classification}_function_{function}.txt",function=['ec','ko','product'],tax_classification=['phylum','class','order'])
-        get_summaries()
-        expand("tables/{sample}_classifications.txt", sample=config["samples"].keys()),
-        expand("logs/{sample}_{idx}_eestats.txt", sample=config["samples"].keys(), idx=["R1", "R2"])
-
-
-# rule get_raw_fastq_qualities:
-#     input:
-#         unpack(lambda wildcards: config["samples"][wildcards.sample])
-#     output:
-#         r1 = "logs/{sample}_R1_eestats.txt",
-#         r2 = "logs/{sample}_R2_eestats.txt"
-#     conda:
-#         CONDAENV
-#     threads:
-#         2
-#     group:
-#         "sample_group"
-#     shell:
-#         """
-#         vsearch --threads 1 --fastq_eestats {input.r1} --output {output.r1} &
-#         vsearch --threads 1 --fastq_eestats {input.r2} --output {output.r2}
-#         """
+        expand("logs/{sample}_R1_eestats.txt", sample=config["samples"].keys(), idx=["R1", "R2"]),
+        get_summaries(),
+        "summary.html"
 
 
 rule deduplicate_reads:
     input:
         unpack(lambda wildcards: config["samples"][wildcards.sample])
     output:
-        r1 = "quality_control/{sample}_00_deduplicate_R1.fastq.gz",
-        r2 = "quality_control/{sample}_00_deduplicate_R2.fastq.gz"
-    log:
-        "logs/{sample}_deduplicate_reads.log"
+        r1 = "quality_control/{sample}_01_deduplicate_R1.fastq.gz",
+        r2 = "quality_control/{sample}_01_deduplicate_R2.fastq.gz",
+        log = "logs/{sample}_deduplicate_reads.log"
     threads:
         config.get("threads", 1)
     resources:
@@ -327,7 +293,7 @@ rule deduplicate_reads:
 
 rule get_raw_fastq_qualities:
     input:
-        "quality_control/{sample}_00_deduplicate_{idx}.fastq.gz"
+        "quality_control/{sample}_01_deduplicate_{idx}.fastq.gz"
     output:
         "logs/{sample}_{idx}_eestats.txt"
     conda:
@@ -362,21 +328,20 @@ rule build_decontamination_db:
 
 rule run_decontamination:
     input:
-        r1 = "quality_control/{sample}_00_deduplicate_R1.fastq.gz",
-        r2 = "quality_control/{sample}_00_deduplicate_R2.fastq.gz",
+        r1 = "quality_control/{sample}_01_deduplicate_R1.fastq.gz",
+        r2 = "quality_control/{sample}_01_deduplicate_R2.fastq.gz",
         db = "ref/genome/1/summary.txt"
     output:
         r1 = "quality_control/{sample}_02_decontamination_R1.fastq.gz",
         r2 = "quality_control/{sample}_02_decontamination_R2.fastq.gz",
-        stats = "logs/{sample}_decontamination_by_reference.log"
+        stats = "logs/{sample}_decontamination_by_reference.log",
+        log = "logs/{sample}_decontamination.log"
     params:
         maxindel = config.get("contaminant_max_indel", 5),
         minratio = config.get("contaminant_min_ratio", 0.80),
         minhits = config.get("contaminant_minimum_hits", 3),
         ambiguous = config.get("contaminant_ambiguous", "best"),
         k = config.get("contaminant_kmer_length", 12),
-    log:
-        "logs/{sample}_decontamination.log"
     threads:
         config.get("threads", 1)
     resources:
@@ -403,11 +368,10 @@ rule merge_sequences:
     output:
         merged = "quality_control/{sample}_03_merged.fastq.gz",
         r1 = "quality_control/{sample}_03_unmerged_R1.fastq.gz",
-        r2 = "quality_control/{sample}_03_unmerged_R2.fastq.gz"
+        r2 = "quality_control/{sample}_03_unmerged_R2.fastq.gz",
+        log = "logs/{sample}_merge_sequences.log"
     params:
         adapters = "" if not config.get("adapters") else "adapter=%s" % config.get("adapters")
-    log:
-        "logs/{sample}_merge_sequences.log"
     threads:
         config.get("threads", 1)
     resources:
@@ -582,75 +546,101 @@ rule combine_sample_output:
                     break
 
 
-rule build_functional_table:
-    input:
-        json= '/Users/zavo603/Documents/Nicki_files/perseq/ko00001.json',
-        tables= expand('tables/{sample}_classifications.txt',sample=config["samples"].keys())
+rule download_kegg_hierarchy:
     output:
-        "summaries/function/{function}.txt"
-        #function='ec','product','ko'
-    threads:
-        config.get("threads", 1)
-    conda:
-        CONDAENV
-
+        os.path.join(os.path.dirname(config.get("diamonddb")), "kegg_hierarchy.json")
     shell:
         """
-        snake_ko.py --json-file-path {input.json} \
-        --classification-file-path {input.tables} \
-        -g {wildcards.function} -o {output} -ml -1 -mp -1
+        curl 'http://www.genome.jp/kegg-bin/download_htext?htext=ko00001&format=json' \
+            --location --output '{output}'
+        """
+
+
+rule build_functional_table:
+    input:
+        tables = expand('tables/{sample}_classifications.txt', sample=config["samples"].keys()),
+        json = rules.download_kegg_hierarchy.output
+    output:
+        "summaries/function/{function}.txt"
+    params:
+        min_id = config.get("min_percent_id", 50),
+        min_len = config.get("min_alignment_length", 40)
+    threads:
+        1
+    conda:
+        CONDAENV
+    shell:
+        """
+        python scripts/summarize_classifications.py \
+            --group-on {wildcards.function} --min-id {params.min_id} \
+            --min-len {params.min_len} {input.json} {output} \
+            {input.tables}
         """
 
 
 rule build_tax_table:
     input:
-        tables= expand('tables/{sample}_classifications.txt',sample=config["samples"].keys()),
-        json= '/Users/zavo603/Documents/Nicki_files/perseq/ko00001.json'
+        tables = expand('tables/{sample}_classifications.txt', sample=config["samples"].keys()),
+        json = rules.download_kegg_hierarchy.output
     output:
-        #function='ec','product','ko'
-        "summaries/taxonomy/taxonomy_{tax_classification}.txt"
-
+        "summaries/taxonomy/{tax_classification}.txt"
+    params:
+        min_id = config.get("min_percent_id", 50),
+        min_len = config.get("min_alignment_length", 40)
     threads:
-        config.get("threads", 1)
+        1
     conda:
         CONDAENV
-
     shell:
         """
-        snake_ko.py --json-file-path {input.json} \
-        --classification-file-path {input.tables} \
-        -t {wildcards.tax_classification} -o {output} -ml -1 -mp -1
+        python scripts/summarize_classifications.py \
+            --group-on tax_classification --min-len {params.min_len} \
+            --min-id {params.min_id} --tax-level {wildcards.tax_classification} \
+            {input.json} {output} {input.tables}
         """
 
 
 rule build_functional_and_tax_table:
     input:
-        tables= expand('tables/{sample}_classifications.txt',sample=config["samples"].keys()),
-        json= '/Users/zavo603/Documents/Nicki_files/perseq/ko00001.json'
+        tables = expand('tables/{sample}_classifications.txt', sample=config["samples"].keys()),
+        json = rules.download_kegg_hierarchy.output
     output:
-        #expand("function_{function}_taxonomy_{tax_classification}.txt",function=['ec','ko','product'],tax_classification=['phylum','class','order']),
-        "summaries/combined/function_{function}_taxonomy_{tax_classification}.txt",
-
+        "summaries/combined/{function}_{tax_classification}.txt"
+    params:
+        min_id = config.get("min_percent_id", 50),
+        min_len = config.get("min_alignment_length", 40)
     threads:
-        config.get("threads", 1)
+        1
     conda:
         CONDAENV
-
     shell:
         """
-        snake_ko.py --json-file-path {input.json} \
-        --classification-file-path {input.tables} \
-        -g {wildcards.function} tax_classification -t {wildcards.tax_classification} -o {output} -ml -1 -mp -1
+        python scripts/summarize_classifications.py \
+            --group-on {wildcards.function} tax_classification \
+            --tax-level {wildcards.tax_classification} --min-id {params.min_id} \
+            --min-len {params.min_len} {input.json} {output} {input.tables}
         """
 
 
-# rule build_report:
-#     input:
-#         ee_stats = expand("logs/{sample}_{idx}_eestats.txt", sample=SAMPLES.keys(), idx=["R1", "R2"])
-#     output:
-#         "summary.html"
-
-#     shell:
-#         """
-#         python scripts/build_report.py --
-#         """
+rule build_report:
+    input:
+        classifications = expand("tables/{sample}_classifications.txt", sample=config["samples"].keys()),
+        ee_stats = expand("logs/{sample}_R1_eestats.txt", sample=config["samples"].keys()),
+        unique_logs = expand("logs/{sample}_deduplicate_reads.log", sample=config["samples"].keys()),
+        clean_logs = expand("logs/{sample}_decontamination.log", sample=config["samples"].keys()),
+        merge_logs = expand("logs/{sample}_merge_sequences.log", sample=config["samples"].keys()),
+        function = "summaries/function/ko.txt",
+        taxonomy = "summaries/taxonomy/phylum.txt",
+        combined = "summaries/combined/ko_phylum.txt"
+    output:
+        "summary.html"
+    shell:
+        """
+        python scripts/build_report.py --merge-logs {input.merge_logs} \
+            --decontamination-logs {input.clean_logs} \
+            --deduplication-logs {input.unique_logs} \
+            --summary-tables {input.classifications} \
+            --r1-quality-files {input.ee_stats} \
+            --html {output} \
+            {CONDAENV} {input.function} {input.taxonomy} {input.combined}
+        """

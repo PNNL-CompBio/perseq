@@ -62,3 +62,14 @@ Expected files after building the database are:
 + Placing data in the right spot and expectations of format
 + Executing snakemake with basic commands; link to snakemake docs
 + Expected output
+
+# Updating References
+
+To update the KO, pathway, and KEGG hierarchy reference data, execute:
+
+```
+./scripts/update_public_kegg_references.sh
+```
+
+By default, the files will write into `tests/refdata`, but the output directory
+can be specified as the first argument.
