@@ -13,4 +13,3 @@ diamonddb: tests/refdata/kegg_subset.faa
 gene2ko: tests/refdata/genes_ko.list.gz
 # curl http://rest.kegg.jp/list/ko > $(date +"%Y%m%d")_ko_list.txt
 kodefs: tests/refdata/ko_list.txt
-kegg_levels: tests/refdata/hierarchy.json
