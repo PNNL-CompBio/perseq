@@ -84,8 +84,6 @@ def df_from_classifications(tbl_path, group_on, split_idx, min_perc_id, min_len)
 
 
 def main(json_file, output, tables, tax_level, min_perc_id, min_len, group_on):
-    if not isinstance(group_on, list):
-        group_on = list(group_on)
     tax_split_level = TAX_LEVELS[tax_level]
     sample_df = None
     logging.debug(f"Preparing to parse {len(tables)} tables")
@@ -143,7 +141,7 @@ if __name__ == "__main__":
         # choices=["tax_classification", "ko", "ec", "product"],
         nargs="+",
         default="tax_classification",
-        help="cluster tables on taxonomy and/or function; headers must match values",
+        help="cluster tables on taxonomy and/or function; headers must match in tables",
     )
     parser.add_argument("--verbose", action="store_true", help="increase output verbosity")
     args = parser.parse_args()
