@@ -286,7 +286,7 @@ rule deduplicate_reads:
         """
         clumpify.sh in={input.r1} in2={input.r2} \
             out={output.r1} out2={output.r2} \
-            dedupe=t optical=t threads={threads} \
+            dedupe=t threads={threads} \
             -Xmx{resources.java_mem}G 2> {log}
         """
 
