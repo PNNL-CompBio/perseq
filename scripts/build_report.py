@@ -333,31 +333,35 @@ def parse_merge_file(path):
 
 
 def parse_log_files(
-    deduplication_logs, decontamination_logs, merge_logs, classifications_per_sample
+    merge_logs, unique_logs, clean_logs, classifications_per_sample
 ):
     logger.info("Parsing log files for summary table")
     header = [
-        "Sequences", "Unique", "Clean", "Pairs\nJoined", "Join\nRate", "Average\nInsert"
+        # "Sequences", "Unique", "Clean", "Pairs\nJoined", "Join\nRate", "Average\nInsert"
+        "Sequences", "Pairs\nJoined", "Join\nRate", "Average\nInsert", "Unique", "Clean"
     ]
     count_table = defaultdict(list)
-    # initial read count from first step's log
-    for deduplication_log in deduplication_logs:
-        sample = get_sample(deduplication_log, "_deduplicate_reads.log")
-        with open(deduplication_log) as fh:
-            for line in fh:
-                if line.startswith("Reads In:"):
-                    count_table[sample].append(int(line.strip("\r\n").split(" ")[-1]))
-    # deduplication count from decontamination input
-    for decontamination_log in decontamination_logs:
-        sample = get_sample(decontamination_log, "_decontamination.log")
-        with open(decontamination_log) as fh:
-            for line in fh:
-                if line.startswith("Reads Used:"):
-                    count_table[sample].append(int(line.strip("\r\n").split("\t")[1]))
-    # decontamination count, join count, join rate, insert size from merge step
+    # initial read count, join count, join rate, insert size from merge step
     for merge_log in merge_logs:
         sample = get_sample(merge_log, "_merge_sequences.log")
         count_table[sample].extend(parse_merge_file(merge_log))
+
+    # unique count after merging and deduplication
+    for unique_log in unique_logs:
+        sample = get_sample(unique_log, "_02_unique_readlengths.txt")
+        with open(unique_log) as fh:
+            for line in fh:
+                if line.startswith("#Reads:"):
+                    count_table[sample].append(int(line.strip("\r\n").split("\t")[-1]))
+
+    # clean count after merging, deduplication, and decontamination
+    for clean_log in clean_logs:
+        sample = get_sample(clean_log, "_03_clean_readlengths.txt")
+        with open(clean_log) as fh:
+            for line in fh:
+                if line.startswith("#Reads:"):
+                    count_table[sample].append(int(line.strip("\r\n").split("\t")[-1]))
+
     log_df = pd.DataFrame.from_dict(count_table, orient="index")
     log_df.columns = header
     log_df = log_df.merge(classifications_per_sample, left_index=True, right_index=True)
@@ -456,8 +460,8 @@ def get_conda_env_str(conda_env_file):
 
 
 def main(
-    decontamination_logs,
-    deduplication_logs,
+    clean_logs,
+    unique_logs,
     merge_logs,
     summary_tables,
     r1_quality_files,
@@ -474,7 +478,7 @@ def main(
     for v in ["Percentage", "Counts"]:
         div[v] = offline.plot(make_plots(observations_at_levels, v), **PLOTLY_PARAMS)
     html_tbl = parse_log_files(
-        deduplication_logs, decontamination_logs, merge_logs, classifications_per_sample
+        merge_logs, unique_logs, clean_logs, classifications_per_sample
     )
     quality_plot = build_quality_plot(r1_quality_files)
     conda_env = get_conda_env_str(conda_env)
@@ -536,20 +540,23 @@ Methods
 -------
 
 Paired-end sequences were evaluated for quality using VSEARCH [1]. Sequence
-reads are deduplicated using the clumpify tool [2] then filtered of phiX and
-rRNA using bbsplit [2]. Passing sequences are quality trimmed after successful
-merging using bbmerge [2]. Sequences are allowed to be extended up 300 bp
+reads are quality trimmed after successful merging using bbmerge [2].
+Sequences are allowed to be extended up 300 bp
 during the merging process to account for non-overlapping R1 and R2 sequences
-(``k=60 extend2=60 iterations=5 qtrim2=t``). Functional annotation and taxonomic
-classification were performed on the merged sequences.
+(``k=60 extend2=60 iterations=5 qtrim2=t``). Merged sequences are deduplicated
+using the clumpify tool [2] then, by default, filtered of PhiX and
+rRNA using bbsplit [2]. An arbitrary number of Name:FASTA pairs may be
+specified during the decontamination process. Functional annotation and
+taxonomic classification were performed following the decontamination step.
 
 Functional Annotation
 *********************
 
 The blastx algorithm of DIAMOND [3] was used to align nucleotide sequences to
 the KEGG protein reference database [4] consisting of non-redundant, family
-level fungal eukaryotes and genus level prokaryotes (``--strand=both``). The
-highest scoring alignment per sequence was used for functional annotation.
+level fungal eukaryotes and genus level prokaryotes
+(``--strand=both --evalue 0.00001``). The highest scoring alignment per
+sequence was used for functional annotation.
 
 Taxonomic Annotation
 ********************
@@ -642,8 +649,8 @@ Downloads
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
-    p.add_argument("--decontamination-logs", nargs="+")
-    p.add_argument("--deduplication-logs", nargs="+")
+    p.add_argument("--clean-logs", nargs="+")
+    p.add_argument("--unique-logs", nargs="+")
     p.add_argument("--merge-logs", nargs="+")
     p.add_argument("--summary-tables", nargs="+")
     p.add_argument("--r1-quality-files", nargs="+")
@@ -654,8 +661,8 @@ if __name__ == "__main__":
     p.add_argument("taxonomy_function_table")
     args = p.parse_args()
     main(
-        args.decontamination_logs,
-        args.deduplication_logs,
+        args.clean_logs,
+        args.unique_logs,
         args.merge_logs,
         args.summary_tables,
         args.r1_quality_files,
