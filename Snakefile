@@ -407,6 +407,8 @@ rule calculate_read_lengths:
         "logs/{file}_readlengths.txt"
     conda:
         CONDAENV
+    group:
+        "sample_group"
     shell:
         """
         readlength.sh in={input} out={output}
