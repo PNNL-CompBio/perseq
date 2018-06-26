@@ -2,8 +2,9 @@ data: tests/data
 threads: 8
 java_mem: 16
 adapters: resources/adapters.fa
-phix: resources/phix.fa
-rRNA: resources/silva_rfam_all_rRNAs.fa
+contaminant_references:
+    PhiX: resources/phix.fa
+    rRNA: resources/rrna.fa.gz
 # makeDB.sh -e
 kaijudb: tests/refdata
 # cat ftp.bioinformatics.jp/kegg/genes/fasta/family_eukaryotes.pep.gz ftp.bioinformatics.jp/kegg/genes/fasta/genus_prokaryotes.pep.gz > temp
