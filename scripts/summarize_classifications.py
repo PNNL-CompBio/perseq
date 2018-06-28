@@ -9,14 +9,14 @@ import pandas as pd
 
 
 TAX_LEVELS = {
-"superkingdom": 1,
-"kingdom": 1,
-"phylum": 2,
-"class": 3,
-"order": 4,
-"family": 5,
-"genus": 6,
-"species": 7,
+    "superkingdom": 1,
+    "kingdom": 1,
+    "phylum": 2,
+    "class": 3,
+    "order": 4,
+    "family": 5,
+    "genus": 6,
+    "species": 7,
 }
 FUNCTION_COLS = ["ko", "ec", "product"]
 
@@ -30,7 +30,7 @@ def parse_kegg_json(json_file):
                 for level_2 in level_1["children"]:
                     try:
                         for level_3 in level_2["children"]:
-                            ko = ("ko:" + level_3["name"].partition(" ")[0])
+                            ko = "ko:" + level_3["name"].partition(" ")[0]
                             if ko in kegg_dict:
                                 kegg_dict[ko]["level_1"] += ";" + root["name"]
                                 kegg_dict[ko]["level_2"] += ";" + level_1["name"]
@@ -60,7 +60,7 @@ def parse_kegg_json(json_file):
 
 
 def df_from_classifications(tbl_path, group_on, split_idx, min_perc_id, min_len):
-    metric_cols = ["aa_percent_id", "aa_alignment_length", "tax_alignment_length"]
+    metric_cols = ["aa_percent_id", "aa_alignment_length", "kaiju_alignment_length"]
     sample = os.path.basename(tbl_path).partition("_classifications.txt")[0]
     # grab columns of interest
     logging.debug(f"Parsing {tbl_path}")
@@ -68,15 +68,19 @@ def df_from_classifications(tbl_path, group_on, split_idx, min_perc_id, min_len)
     logging.debug(f"Initial table size: {len(df)}")
     # functional assignment filters
     if any(FUNCTION_COLS) in group_on:
-        df = df[(df["aa_percent_id"] > min_perc_id) & (df["aa_alignment_length"] > min_len)]
+        df = df[
+            (df["aa_percent_id"] > min_perc_id) & (df["aa_alignment_length"] > min_len)
+        ]
         logging.debug(f"After functional filters: {len(df)}")
     # taxonomy assignment filters
-    if "tax_classification" in group_on:
-        df = df[(df["tax_alignment_length"] > min_len)]
+    if "kaiju_classification" in group_on:
+        df = df[(df["kaiju_alignment_length"] > min_len)]
         logging.debug(f"After taxonomy filters: {len(df)}")
         # with a split index of 2 (phylum), converts:
         # Bacteria; Proteobacteria; NA; NA; NA;  --->  Bacteria; Proteobacteria
-        df["tax_classification"] = df["tax_classification"].apply(lambda x: "; ".join(x.split("; ", split_idx)[0:split_idx]))
+        df["kaiju_classification"] = df["kaiju_classification"].apply(
+            lambda x: "; ".join(x.split("; ", split_idx)[0:split_idx])
+        )
     df = df.drop(metric_cols, axis=1)
     df = df.groupby(group_on).size().reset_index(name=sample)
     logging.debug(f"Final table length: {len(df)}")
@@ -89,16 +93,22 @@ def main(json_file, output, tables, tax_level, min_perc_id, min_len, group_on):
     logging.debug(f"Preparing to parse {len(tables)} tables")
     for tbl in tables:
         logging.info(f"Parsing {tbl}")
-        df = df_from_classifications(tbl, group_on, tax_split_level, min_perc_id, min_len)
+        df = df_from_classifications(
+            tbl, group_on, tax_split_level, min_perc_id, min_len
+        )
         if sample_df is None:
             sample_df = df.copy()
             continue
         sample_df = sample_df.merge(df, on=group_on, how="outer").fillna("0")
-    sample_df = sample_df.rename(columns={"tax_classification": f"taxonomy_{tax_level}"})
+    sample_df = sample_df.rename(
+        columns={"kaiju_classification": f"taxonomy_{tax_level}"}
+    )
     if "ko" in group_on:
         logging.info(f"Adding KEGG hierarchy from {json_file}")
         kegg_pd = parse_kegg_json(json_file)
-        logging.debug(f"Table shape prior to merging with KEGG hierarchy: {sample_df.shape}")
+        logging.debug(
+            f"Table shape prior to merging with KEGG hierarchy: {sample_df.shape}"
+        )
         sample_df = sample_df.merge(kegg_pd, on="ko", how="inner")
         logging.debug(f"After performing inner join: {sample_df.shape}")
     sample_df.to_csv(output, sep="\t", index=False)
@@ -138,12 +148,14 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--group-on",
-        # choices=["tax_classification", "ko", "ec", "product"],
+        # choices=["kaiju_classification", "ko", "ec", "product"],
         nargs="+",
-        default="tax_classification",
+        default="kaiju_classification",
         help="cluster tables on taxonomy and/or function; headers must match in tables",
     )
-    parser.add_argument("--verbose", action="store_true", help="increase output verbosity")
+    parser.add_argument(
+        "--verbose", action="store_true", help="increase output verbosity"
+    )
     args = parser.parse_args()
     if args.verbose:
         logging.basicConfig(level=logging.DEBUG)
@@ -154,5 +166,5 @@ if __name__ == "__main__":
         args.tax_level,
         args.min_id,
         args.min_len,
-        args.group_on
+        args.group_on,
     )
