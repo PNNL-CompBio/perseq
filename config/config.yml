@@ -1,16 +1,27 @@
+# the location of pair-end FASTQ files to annotate
 data: tests/data
+# individual process threads
 threads: 8
+# specify a number that represents GBs of available RAM
 java_mem: 16
+# adapter trimming occurs after successful sequence merge
 adapters: resources/adapters.fa
 contaminant_references:
     PhiX: resources/phix.fa
     rRNA: resources/rrna.fa.gz
+# contains kaiju_db.fmi, nodes.dmp, and names.dmp
 # makeDB.sh -e
 kaijudb: tests/refdata
 # cat ftp.bioinformatics.jp/kegg/genes/fasta/family_eukaryotes.pep.gz ftp.bioinformatics.jp/kegg/genes/fasta/genus_prokaryotes.pep.gz > temp
 # python scripts/filter_kegg_fa.py ftp.bioinformatics.jp/kegg/genes/misc/taxonomy temp > kegg_feukaryotes_gprokaryotes.faa
 diamonddb: tests/refdata/kegg_subset.faa
+# links genes (hsa:578) to KO (ko:K14021)
+# this file could also be created using their RESTful interface by looking up all KOs at http://rest.kegg.jp/link/genes/K14021; perseq's expectation is for species to be in column 1 and KO to be in column 2
 # ftp.bioinformatics.jp/kegg/genes/links/genes_ko.list.gz
 gene2ko: tests/refdata/genes_ko.list.gz
-# curl http://rest.kegg.jp/list/ko > $(date +"%Y%m%d")_ko_list.txt
-kodefs: tests/refdata/ko_list.txt
+# defines KO and the KO's description
+# curl http://rest.kegg.jp/list/ko > ko_list.txt
+ko_list: tests/refdata/ko_list.txt
+# links KEGG's species code with NCBI's
+# curl http://rest.kegg.jp/list/genome > genome_list.txt
+genome_list: tests/refdata/genome_list.txt
