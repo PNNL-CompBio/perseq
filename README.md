@@ -1,5 +1,7 @@
 # PerSeq: Per sequence functional and taxonomic assignments
 
+[![DOI](https://zenodo.org/badge/131617399.svg)](https://zenodo.org/badge/latestdoi/131617399)
+
 PerSeq is an annotation workflow implemented in
 [Snakemake](https://snakemake.readthedocs.io/en/stable/) and is designed to
 be copied to your analysis directory. Dependencies are defined in
@@ -9,7 +11,6 @@ be copied to your analysis directory. Dependencies are defined in
 
 To report a bug or suggest changes, please use the
 [GitHub repository](https://github.com/PNNL-CompBio/perseq).
-
 
 # Installation
 
