@@ -35,13 +35,26 @@ def get_samples_from_dir(config):
         logger.error("'data' dir with FASTQs has not been set; pass --config data=/path")
         sys.exit(1)
 
-    logger.info("Finding samples in %s" % fastq_dir)
+    raw_fastq_files = list()
+    for fq_dir in fastq_dir.split(","):
+        if "*" in fastq_dir:
+            from glob import glob
+            logger.info("Finding samples matching %s" % fq_dir)
+            raw_fastq_files.extend(glob(fq_dir))
+        else:
+            logger.info("Finding samples in %s" % fq_dir)
+            raw_fastq_files.extend([os.path.join(fq_dir, i) for i in os.listdir(fq_dir)])
+
     samples = dict()
     seen = set()
-    for fname in os.listdir(fastq_dir):
-        if not ".fastq" in fname and not ".fq" in fname: continue
-        if not "_R1" in fname and not "_r1" in fname: continue
-        fq_path = os.path.join(fastq_dir, fname)
+    for fq_path in raw_fastq_files:
+        fname = os.path.basename(fq_path)
+        fastq_dir = os.path.dirname(fq_path)
+        if not ".fastq" in fname and not ".fq" in fname:
+            continue
+        if not "_R1" in fname and not "_r1" in fname:
+            continue
+
         sample_id = fname.partition(".fastq")[0]
         if ".fq" in sample_id:
             sample_id = fname.partition(".fq")[0]
