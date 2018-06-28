@@ -1,167 +1,10 @@
 """
-per sequence classifications
+Per sequence characterization
 """
 import os
 import sys
 
-from collections import Counter, defaultdict, deque, OrderedDict
-
 from snakemake.logging import logger
-from snakemake.utils import report
-
-
-TAX_LEVELS = ["superkingdom", "phylum", "class", "order", "family", "genus", "species"]
-
-class Node(object):
-    def __init__(self, taxonomy, node_id, parent_id, tax_level):
-        """Represents a node within a tree.
-        Args:
-            taxonomy (str): taxonomy name or ID
-            node_id (str): taxonomy ID
-            parent_id (str): taxonomy ID of parent
-            tax_level (str): the taxonomic level for this node_id
-        """
-        # the current node's string ID
-        self.taxonomy = taxonomy
-        # the current node's digit ID
-        self.node_id = node_id
-        self.parent_id = parent_id
-        self.tax_level = tax_level
-
-
-class Tree(object):
-    def __init__(self, tree_file):
-        """Builds reference dictionary of Taxonomy Name, Taxonomy ID, and Parent Taxonomy ID."""
-        self.tree = defaultdict(dict)
-        with open(tree_file) as tree_fh:
-            for line in tree_fh:
-                toks = line.strip().split("\t")
-                if not toks[0] == '1' and not toks[2] == '1':
-                    assert not toks[0] == toks[2]
-                if not len(toks) == 4:
-                    logging.warning("Line [%s] does not have ID, NAME, PARENTID, TAX LEVEL" % line.strip())
-                    continue
-                self.add_node(toks[1], toks[0], toks[2], toks[3])
-
-    def add_node(self, taxonomy, node_id, parent_id, tax_level):
-        """Adds node to tree dictionary.
-        Args:
-            taxonomy (str): the taxonomy name
-            node_id (str): the taxonomy id
-            parent_id (str): the parent's taxonomy id
-            tax_level (str): the taxonomic level for this node_id
-        """
-        # taxonomy id to node mapping; ensures unique nodes despite non-unique names
-        self.tree[node_id] = Node(taxonomy, node_id, parent_id, tax_level)
-
-    def lca(self, taxonomies, threshold=1.):
-        """
-        taxonomies (list): FIXME
-        """
-        if threshold > 1:
-            threshold = 1
-        elif threshold < 0.01:
-            # 10% as the minimum
-            threshold = 0.1
-        count_target = len(taxonomies) * threshold
-        # FIXME this should be a Counter
-        count_taxonomies = defaultdict(int)
-        for taxonomy in taxonomies:
-            try:
-                current_taxonomy = self.tree[taxonomy].node_id
-            except AttributeError:
-                # dict when key not present
-                # taxonomy represented in the reference database, but is not present in the tree
-                continue
-
-            while not current_taxonomy == "1":
-                count_taxonomies[current_taxonomy] += 1
-                if count_taxonomies[current_taxonomy] >= count_target:
-                    return self.tree[current_taxonomy].node_id
-                # traverse up tree
-                current_taxonomy = self.tree[current_taxonomy].parent_id
-        return "1"
-
-    def taxonomic_lineage(self, taxonomy):
-        if taxonomy == "1":
-            return [taxonomy]
-
-        lineage = [taxonomy]
-        while not taxonomy == "1":
-            taxonomy = self.tree[taxonomy].parent_id
-            # prepend
-            lineage.insert(0, taxonomy)
-        return lineage
-
-
-def validate_lineage(lineage, sep=";"):
-    levels = ["k" if tax_level == "superkingdom" else tax_level[0] for tax_level in TAX_LEVELS]
-    valid_lineage = []
-    for idx in levels:
-        valid_lineage.append("%s__%s" % (idx, lineage.get(idx, "?").replace(",", "")))
-    return sep.join(valid_lineage)
-
-
-def lineage_form(lca):
-    """
-    calls validate lineage <-- technically, yes, but something about what
-    it accepts as a parameter and maybe something about what this method
-    returns would be more appropriate
-    """
-    lineage = {}
-    # FIXME bug
-    for item in test.taxonomic_lineage(lca):
-        # FIXME
-        node = test.tree[item]
-        if node.tax_level in TAX_LEVELS:
-            # does not account for "no rank" and some other cases of "unclassified"
-            lineage["k" if node.tax_level == "superkingdom" else node.tax_level[0]] = node.taxonomy
-    lineage = validate_lineage(lineage)
-    return lineage
-
-
-def convert_tax(converter_file):
-    """converts the kegg ID into the NCBI ID"""
-
-    with open(converter_file) as tax_id:
-        converter = {}
-        for line in tax_id:
-
-            # FIXME something doesn't seem right here
-            toks=line.strip().split('\t')[1]
-            bits=toks.split(',')
-            toks=line.strip().split('\t')[1]
-            bits=toks.split(';')
-            lil_bits=bits[0].split(',')
-
-            if len(lil_bits) == 3:
-                kegg_id = lil_bits[0]
-                node_id = lil_bits[2]
-                NCBI_id = bits[1].strip()
-            elif len(lil_bits) < 3:
-                # FIXME why?
-                lil_bits.insert(1, 'X')
-                kegg_id = lil_bits[0]
-                node_id = lil_bits[2]
-                NCBI_id = bits[1].strip()
-            else:
-                break
-
-            converter[kegg_id] = (NCBI_id, node_id)
-        return converter
-
-
-def grab_node(aligned):
-    # FIXME bug
-    toks = aligned.strip().split('\t')
-    kegg_id = str(toks[1].split(':')[0])
-    # FIXME why a try/except if we're also checking for the key's existence?
-    try:
-        # FIXME another bug
-        if kegg_id in converter:
-            return converter[kegg_id][1]
-    except KeyError:
-        pass
 
 
 def get_kaiju_db_dir(config):
@@ -186,13 +29,6 @@ def get_kaiju_db_dir(config):
 
 
 def get_samples_from_dir(config):
-    """
-    Key assumptions:
-        + names still end in .fastq and they are gzip compressed (.fastq.gz)
-        + files are paired-end
-        + names end with _R?_001.fastq.gz or _R?.fastq.gz
-        + names start with SAMPLE_ and everything before the first underscore maintains a unique set of sample names
-    """
     # groups = {key: set(value) for key, value in groupby(sorted(mylist, key = lambda e: os.path.splitext(e)[0]), key = lambda e: os.path.splitext(e)[0])}
     fastq_dir = config.get("data")
     if not fastq_dir:
@@ -494,80 +330,24 @@ rule run_functional_classification:
 
 rule combine_sample_output:
     input:
-        tax = "kaiju/{sample}_aln_names.txt",
-        fun = "diamond/{sample}_aln.txt"
+        kaiju = "kaiju/{sample}_aln_names.txt",
+        blastx = "diamond/{sample}_aln.txt",
+        gene2ko = config["gene2ko"],
+        kolist = config["ko_list"],
+        code2id = config["genome_list"],
+        names = os.path.join(config["kaijudb"], "names.dmp"),
+        nodes = os.path.join(config["kaijudb"], "nodes.dmp")
     output:
         "tables/{sample}_classifications.txt"
     params:
-        gene2ko = config["gene2ko"],
-        kodefs = config["kodefs"]
-    run:
-        import gzip
-        from itertools import groupby
-
-        genes_ko = params["gene2ko"]
-        ko_list = params["kodefs"]
-        kaiju_names = input["tax"]
-        diamond_hits = input["fun"]
-        outtable = output[0]
-
-        gene_map = {}
-        with gzip.open(genes_ko, "rt") as fh:
-            for line in fh:
-                toks = line.strip().split("\t")
-                gene_map[toks[0]] = toks[1]
-        function_map = {}
-        with open(ko_list) as fh:
-            for line in fh:
-                toks = line.strip().split("\t")
-                if "[EC:" in toks[1]:
-                    product = toks[1].partition(" [EC:")[0]
-                    ec = toks[1].partition("[EC:")[-1].strip("]").replace(" ", ";")
-                else:
-                    product = toks[1]
-                    ec = ""
-                function_map[toks[0]] = (ec, product)
-        tax_classifications = {}
-        with open(kaiju_names) as fh:
-            for line in fh:
-                toks = line.strip().split("\t")
-                if toks[0] == "U":
-                    tax_classifications[toks[1]] = ["", ""]
-                else:
-                    tax_classifications[toks[1]] = [toks[3], toks[7]]
-        with open(diamond_hits) as ifh, open(outtable, "w") as ofh:
-            print("read_id", "aa_percent_id", "aa_alignment_length", "ko",
-                "product", "ec", "tax_alignment_length", "tax_classification",
-                sep="\t", file=ofh)
-            for seqid, seqgroup in groupby(ifh, key=lambda i: i.partition("\t")[0]):
-                for line in seqgroup:
-                    toks = line.strip().split("\t")
-                    read_id = toks[0]
-                    # no functional hit
-                    if toks[1] == "*":
-                        aa_percent_id = -1
-                        aa_alignment_length = -1
-                        ko = ""
-                        product = ""
-                        ec = ""
-                    else:
-                        try:
-                            ko = gene_map[toks[1]]
-                        except KeyError:
-                            ko = ""
-                        if ko:
-                            ec, product = function_map[ko]
-                        else:
-                            ec = ""
-                            product = ""
-                        aa_percent_id = toks[2]
-                        aa_alignment_length = toks[3]
-                    # get taxonomy; this should never cause a KeyError
-                    tax_alignment_length, tax_classification = tax_classifications[read_id]
-                    print(read_id, aa_percent_id, aa_alignment_length, ko, product,
-                        ec, tax_alignment_length, tax_classification, sep="\t", file=ofh)
-                    # just print the best HSP
-                    break
+        lca_threshold = config.get("lca_threshold", 1.0)
+    shell:
+        """
+        python scripts/make_classification_table.py \
+            --lca-threshold {params.lca_threshold} {input.kaiju} {input.blastx} \
+            {input.gene2ko} {input.code2id} {input.kolist} {input.names} \
+            {input.nodes} {output}
+        """
 
 
 rule download_kegg_hierarchy:
@@ -620,7 +400,7 @@ rule build_tax_table:
     shell:
         """
         python scripts/summarize_classifications.py \
-            --group-on tax_classification --min-len {params.min_len} \
+            --group-on kaiju_classification --min-len {params.min_len} \
             --min-id {params.min_id} --tax-level {wildcards.tax_classification} \
             {input.json} {output} {input.tables}
         """
@@ -642,7 +422,7 @@ rule build_functional_and_tax_table:
     shell:
         """
         python scripts/summarize_classifications.py \
-            --group-on {wildcards.function} tax_classification \
+            --group-on {wildcards.function} kaiju_classification \
             --tax-level {wildcards.tax_classification} --min-id {params.min_id} \
             --min-len {params.min_len} {input.json} {output} {input.tables}
         """
