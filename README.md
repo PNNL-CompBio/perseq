@@ -1,10 +1,55 @@
 # PerSeq: Per sequence functional and taxonomic assignments
 
-PerSeq is an annotation workflow implemented in [Snakemake](https://snakemake.readthedocs.io/en/stable/) and is designed to be copied to your analysis directory. Dependencies are defined in
-``envs/required.yaml`` and are installed at runtime via [Bioconda](https://bioconda.github.io/)
-(``snakemake --use-conda``) or [Biocontainers](https://biocontainers.pro/) (``snakemake --use-singularity``).
+PerSeq is an annotation workflow implemented in
+[Snakemake](https://snakemake.readthedocs.io/en/stable/) and is designed to
+be copied to your analysis directory. Dependencies are defined in
+``envs/required.yaml`` and are installed at runtime via
+[Bioconda](https://bioconda.github.io/)(``snakemake --use-conda``) or
+[Biocontainers](https://biocontainers.pro/) (``snakemake --use-singularity``).
 
-To report a bug or suggest changes, please visit the [GitHub repository](https://github.com/brwnj/perseq).
+To report a bug or suggest changes, please use the
+[GitHub repository](https://github.com/PNNL-CompBio/perseq).
+
+
+# Installation
+
+```
+conda config --add channels defaults
+conda config --add channels conda-forge
+conda config --add channels bioconda
+conda install python3 snakemake
+```
+
+Create your experimental working directory and clone the workflow:
+
+```
+mkdir soil-metag && cd $_
+git clone https://github.com/PNNL-CompBio/perseq
+cd perseq
+```
+
+
+# Usage
+
+It is recommended that all file paths within the configuration have absolute
+paths, that is, they all start with a slash. It is assumed `conda` is
+available in your `$PATH` and that you want to use the environment defined
+in the `perseq` workflow.
+
+Edit the configuration file with your references then run `snakemake`:
+
+```
+snakemake --use-conda --jobs 8 --configfile config/config.yml
+```
+
+Results write into the current working directory, though an alternate may be
+specified:
+
+```
+snakemake --directory results \
+    --use-conda --jobs 8 --configfile config/config.yml
+```
+
 
 # Quality Control
 
@@ -34,6 +79,7 @@ contaminant_references:
 Hits to contaminant references are detailed in
 `quality_control/<sample>_03_<contaminant key>.fasta.gz`.
 
+
 # Taxonomic Annotation
 
 Kmer-based taxonomic classification is performed on the merged reads using
@@ -60,23 +106,16 @@ Expected files after building the database are:
 + nodes.dmp
 + kaiju_db.fmi
 
+
 # Functional Annotation
 
 The blastx algorithm of DIAMOND is used to align nucleotide sequences to
 a KEGG protein reference database consisting of non-redundant, family
 level fungal eukaryotes and genus level prokaryotes
-(``--strand=both --evalue 0.00001``). Due to KEGG licensing we cannot
+(``--strand=both --evalue 0.00001``). Due to KEGG's licensing, we cannot
 distribute this reference database. The highest scoring alignment per
 sequence is used for functional annotation.
 
-# Installation
-
-```
-conda config --add channels defaults
-conda config --add channels conda-forge
-conda config --add channels bioconda
-conda install python3 snakemake
-```
 
 # Updating References
 
