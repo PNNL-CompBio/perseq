@@ -76,7 +76,9 @@ def parse_classifications_for_taxonomy(path):
     logger.info("Parsing {}".format(path))
     # hardcoded tax levels :(
     taxonomy_level_counter = {
-        "order": Counter(), "class": Counter(), "phylum": Counter()
+        "order": Counter(),
+        "class": Counter(),
+        "phylum": Counter(),
     }
     taxonomy_counter = Counter()
     summary_counter = Counter()
@@ -116,7 +118,7 @@ def get_sample_order(lst):
     >>> lst = [["j", 2],["o", 1],["e", 3]]
     ['e', 'j', 'o']
     """
-    return [i[0] for i in sorted(lst, key= lambda x: x[1], reverse=True)]
+    return [i[0] for i in sorted(lst, key=lambda x: x[1], reverse=True)]
 
 
 def process_reads(df, tax_level, sample_order):
@@ -149,7 +151,7 @@ def process_reads(df, tax_level, sample_order):
     return sub_t, sub_perc_t
 
 
-def compile_summary_df(classification_tables, tax_levels= ["phylum", "class", "order"]):
+def compile_summary_df(classification_tables, tax_levels=["phylum", "class", "order"]):
     """
     Reads in multiple sample alignments from diamond in a given directory and merges them into
     a single pandas.DataFrame. It returns a pandas dataframe for each of th
@@ -186,8 +188,9 @@ def compile_summary_df(classification_tables, tax_levels= ["phylum", "class", "o
         c, p = process_reads(dfs[tax_level], tax_level, sample_order)
         observations_at_levels["Counts"][tax_level] = c
         observations_at_levels["Percentage"][tax_level] = p
-    return observations_at_levels, pd.DataFrame.from_dict(
-        classifications_per_sample, orient="index"
+    return (
+        observations_at_levels,
+        pd.DataFrame.from_dict(classifications_per_sample, orient="index"),
     )
 
 
@@ -195,37 +198,41 @@ def make_plots(observations, summary_type):
     # data traces are taxonomies across samples
     labels = {"Percentage": "Relative Abundance", "Counts": "Counts"}
     # tax levels are hardcoded at this point
-    data = [
-        go.Bar(
-            x=observations[summary_type]["phylum"].index,
-            y=observations[summary_type]["phylum"][tax],
-            name=tax,
-            text=tax,
-            hoverinfo="text+y",
-            visible=True,
-        )
-        for tax in observations[summary_type]["phylum"].columns.tolist()
-    ] + [
-        go.Bar(
-            x=observations[summary_type]["class"].index,
-            y=observations[summary_type]["class"][tax],
-            name=tax,
-            text=tax,
-            hoverinfo="text+y",
-            visible=False,
-        )
-        for tax in observations[summary_type]["class"].columns.tolist()
-    ] + [
-        go.Bar(
-            x=observations[summary_type]["order"].index,
-            y=observations[summary_type]["order"][tax],
-            name=tax,
-            text=tax,
-            hoverinfo="text+y",
-            visible=False,
-        )
-        for tax in observations[summary_type]["order"].columns.tolist()
-    ]
+    data = (
+        [
+            go.Bar(
+                x=observations[summary_type]["phylum"].index,
+                y=observations[summary_type]["phylum"][tax],
+                name=tax,
+                text=tax,
+                hoverinfo="text+y",
+                visible=True,
+            )
+            for tax in observations[summary_type]["phylum"].columns.tolist()
+        ]
+        + [
+            go.Bar(
+                x=observations[summary_type]["class"].index,
+                y=observations[summary_type]["class"][tax],
+                name=tax,
+                text=tax,
+                hoverinfo="text+y",
+                visible=False,
+            )
+            for tax in observations[summary_type]["class"].columns.tolist()
+        ]
+        + [
+            go.Bar(
+                x=observations[summary_type]["order"].index,
+                y=observations[summary_type]["order"][tax],
+                name=tax,
+                text=tax,
+                hoverinfo="text+y",
+                visible=False,
+            )
+            for tax in observations[summary_type]["order"].columns.tolist()
+        ]
+    )
     # the number of taxa
     trace_length_phy = len(observations[summary_type]["phylum"].columns)
     trace_length_cla = len(observations[summary_type]["class"].columns)
@@ -243,12 +250,9 @@ def make_plots(observations, summary_type):
                             method="update",
                             args=[
                                 {
-                                    "visible": [True] *
-                                    trace_length_phy +
-                                    [False] *
-                                    trace_length_cla +
-                                    [False] *
-                                    trace_length_ord
+                                    "visible": [True] * trace_length_phy
+                                    + [False] * trace_length_cla
+                                    + [False] * trace_length_ord
                                 },
                                 {"yaxis": {"title": labels[summary_type]}},
                             ],
@@ -258,12 +262,9 @@ def make_plots(observations, summary_type):
                             method="update",
                             args=[
                                 {
-                                    "visible": [False] *
-                                    trace_length_phy +
-                                    [True] *
-                                    trace_length_cla +
-                                    [False] *
-                                    trace_length_ord
+                                    "visible": [False] * trace_length_phy
+                                    + [True] * trace_length_cla
+                                    + [False] * trace_length_ord
                                 },
                                 {"yaxis": {"title": labels[summary_type]}},
                             ],
@@ -273,12 +274,9 @@ def make_plots(observations, summary_type):
                             method="update",
                             args=[
                                 {
-                                    "visible": [False] *
-                                    trace_length_phy +
-                                    [False] *
-                                    trace_length_cla +
-                                    [True] *
-                                    trace_length_ord
+                                    "visible": [False] * trace_length_phy
+                                    + [False] * trace_length_cla
+                                    + [True] * trace_length_ord
                                 },
                                 {"yaxis": {"title": labels[summary_type]}},
                             ],
@@ -332,32 +330,38 @@ def parse_merge_file(path):
     return counts
 
 
-def parse_log_files(
-    deduplication_logs, decontamination_logs, merge_logs, classifications_per_sample
-):
+def parse_log_files(merge_logs, unique_logs, clean_logs, classifications_per_sample):
     logger.info("Parsing log files for summary table")
     header = [
-        "Sequences", "Unique", "Clean", "Pairs\nJoined", "Join\nRate", "Average\nInsert"
+        "Sequences",
+        "Pairs\nJoined",
+        "Join\nRate",
+        "Average\nInsert",
+        "Unique",
+        "Clean",
     ]
     count_table = defaultdict(list)
-    # initial read count from first step's log
-    for deduplication_log in deduplication_logs:
-        sample = get_sample(deduplication_log, "_deduplicate_reads.log")
-        with open(deduplication_log) as fh:
-            for line in fh:
-                if line.startswith("Reads In:"):
-                    count_table[sample].append(int(line.strip("\r\n").split(" ")[-1]))
-    # deduplication count from decontamination input
-    for decontamination_log in decontamination_logs:
-        sample = get_sample(decontamination_log, "_decontamination.log")
-        with open(decontamination_log) as fh:
-            for line in fh:
-                if line.startswith("Reads Used:"):
-                    count_table[sample].append(int(line.strip("\r\n").split("\t")[1]))
-    # decontamination count, join count, join rate, insert size from merge step
+    # initial read count, join count, join rate, insert size from merge step
     for merge_log in merge_logs:
         sample = get_sample(merge_log, "_merge_sequences.log")
         count_table[sample].extend(parse_merge_file(merge_log))
+
+    # unique count after merging and deduplication
+    for unique_log in unique_logs:
+        sample = get_sample(unique_log, "_02_unique_readlengths.txt")
+        with open(unique_log) as fh:
+            for line in fh:
+                if line.startswith("#Reads:"):
+                    count_table[sample].append(int(line.strip("\r\n").split("\t")[-1]))
+
+    # clean count after merging, deduplication, and decontamination
+    for clean_log in clean_logs:
+        sample = get_sample(clean_log, "_03_clean_readlengths.txt")
+        with open(clean_log) as fh:
+            for line in fh:
+                if line.startswith("#Reads:"):
+                    count_table[sample].append(int(line.strip("\r\n").split("\t")[-1]))
+
     log_df = pd.DataFrame.from_dict(count_table, orient="index")
     log_df.columns = header
     log_df = log_df.merge(classifications_per_sample, left_index=True, right_index=True)
@@ -366,7 +370,10 @@ def parse_log_files(
     header.extend(["Assigned\nFunction", "Assigned\nTaxonomy", "Assigned\nBoth"])
     log_df.columns = header
     sample_summary_table = log_df[header].to_html(
-        index=False, bold_rows=False, classes=["table", "table-bordered"], table_id="summaryTable"
+        index=False,
+        bold_rows=False,
+        classes=["table", "table-bordered"],
+        table_id="summaryTable",
     )
     sample_summary_table = sample_summary_table.replace("\n", "\n" + 10 * " ")
     return sample_summary_table
@@ -374,7 +381,7 @@ def parse_log_files(
 
 def build_quality_plot(r1_quality_files):
     logger.info("Building Sequence Quality plots")
-    raw_qual_stats = defaultdict( lambda: defaultdict(list))
+    raw_qual_stats = defaultdict(lambda: defaultdict(list))
     for r1_ee_file in r1_quality_files:
         sample_name = get_sample(r1_ee_file, "_R1_eestats.txt")
         r2_ee_file = "_R2".join(r1_ee_file.rsplit("_R1", 1))
@@ -404,7 +411,7 @@ def build_quality_plot(r1_quality_files):
                 )
             )
     layout = go.Layout(
-        title='Mean Quality Scores for R1 and R2',
+        title="Mean Quality Scores for R1 and R2",
         margin={"b": "auto", "r": "auto"},
         xaxis={"title": "Position"},
         yaxis={"title": "Quality (Phred score)"},
@@ -431,8 +438,8 @@ def build_quality_plot(r1_quality_files):
                 yref="paper",
                 text="Reverse",
                 showarrow=False,
-                font=dict(size=16, color='#ffffff'),
-                align='left',
+                font=dict(size=16, color="#ffffff"),
+                align="left",
                 borderpad=4,
                 bgcolor="#d62728",
             ),
@@ -456,8 +463,8 @@ def get_conda_env_str(conda_env_file):
 
 
 def main(
-    decontamination_logs,
-    deduplication_logs,
+    clean_logs,
+    unique_logs,
     merge_logs,
     summary_tables,
     r1_quality_files,
@@ -474,7 +481,7 @@ def main(
     for v in ["Percentage", "Counts"]:
         div[v] = offline.plot(make_plots(observations_at_levels, v), **PLOTLY_PARAMS)
     html_tbl = parse_log_files(
-        deduplication_logs, decontamination_logs, merge_logs, classifications_per_sample
+        merge_logs, unique_logs, clean_logs, classifications_per_sample
     )
     quality_plot = build_quality_plot(r1_quality_files)
     conda_env = get_conda_env_str(conda_env)
@@ -494,6 +501,7 @@ PerSeq_ - Per sequence functional and taxonomic assignments
 
 .. contents::
     :backlinks: none
+    :depth: 2
 
 
 Summary
@@ -536,20 +544,23 @@ Methods
 -------
 
 Paired-end sequences were evaluated for quality using VSEARCH [1]. Sequence
-reads are deduplicated using the clumpify tool [2] then filtered of phiX and
-rRNA using bbsplit [2]. Passing sequences are quality trimmed after successful
-merging using bbmerge [2]. Sequences are allowed to be extended up 300 bp
+reads are quality trimmed after successful merging using bbmerge [2].
+Sequences are allowed to be extended up 300 bp
 during the merging process to account for non-overlapping R1 and R2 sequences
-(``k=60 extend2=60 iterations=5 qtrim2=t``). Functional annotation and taxonomic
-classification were performed on the merged sequences.
+(``k=60 extend2=60 iterations=5 qtrim2=t``). Merged sequences are deduplicated
+using the clumpify tool [2] then, by default, filtered of PhiX and
+rRNA using bbsplit [2]. An arbitrary number of Name:FASTA pairs may be
+specified during the decontamination process. Functional annotation and
+taxonomic classification were performed following the decontamination step.
 
 Functional Annotation
 *********************
 
 The blastx algorithm of DIAMOND [3] was used to align nucleotide sequences to
 the KEGG protein reference database [4] consisting of non-redundant, family
-level fungal eukaryotes and genus level prokaryotes (``--strand=both``). The
-highest scoring alignment per sequence was used for functional annotation.
+level fungal eukaryotes and genus level prokaryotes
+(``--strand=both --evalue 0.00001``). The highest scoring alignment per
+sequence was used for functional annotation.
 
 Taxonomic Annotation
 ********************
@@ -580,25 +591,36 @@ Execution Environment
 Output
 ------
 
+Classification Tables
+*********************
+
 Per sample classifications in tables/ contain:
 
 .. table::
     :name: classificationtable
 
-    ====================  ==========================================================================================================================================
-    Header ID             Definition
-    ====================  ==========================================================================================================================================
-    aa_alignment_length   The length of the DIAMOND blastx hit
-    aa_percent_id         The percent ID of the DIAMOND blastx hit; could be used to increase post-processing stringency
-    ec                    Enzyme Commission number from KEGG; semicolon delimited where multiple
-    ko                    KEGG entry ID
-    product               KEGG gene ID <semicolon> KEGG product
-    read_id               The sequence identifier (unique)
-    tax_alignment_length  The length of the Kaiju hit
-    tax_classification    The Kaiju classification in order of superkingdom, phylum, order, class, family, genus, species; "NA" for each taxonomic level not defined
-    ====================  ==========================================================================================================================================
+    =========================  ==========================================================================================================================================
+    Header ID                  Definition
+    =========================  ==========================================================================================================================================
+    aa_alignment_length        The length of the DIAMOND blastx hit
+    aa_percent_id              The percent ID of the DIAMOND blastx hit; could be used to increase post-processing stringency
+    ec                         Enzyme Commission number from KEGG; semicolon delimited where multiple
+    ko                         KEGG entry ID
+    product                    KEGG gene ID <semicolon> KEGG product
+    read_id                    The sequence identifier (unique)
+    kaiju_alignment_length     The length of the Kaiju hit
+    kaiju_classification       The Kaiju classification in order of superkingdom, phylum, order, class, family, genus, species; "NA" for each taxonomic level not defined
+    blastx_lca_classification  The LCA result from the blastx HSPs
+    =========================  ==========================================================================================================================================
 
-Per taxonomy assignments in tables named taxonomy_<level>.txt contain:
+Summary Tables
+**************
+
+Taxonomy
+````````
+
+Per taxonomy assignments in tables named **summaries/taxonomy/<level>.txt**
+contain:
 
 .. table::
     :name: taxonomydeftable
@@ -607,10 +629,14 @@ Per taxonomy assignments in tables named taxonomy_<level>.txt contain:
     Header ID             Definition
     ====================  ======================================================
     taxonomy_<level>      taxonomic level into which counts have been summed
-    samples names         Non-normalized, per sample sum at this taxonomic level
+    samples names         non-normalized, per sample sum at this taxonomic level
     ====================  ======================================================
 
-Per function assignments in tables named function_<type>.txt contain:
+Function
+````````
+
+Per function assignments in tables named **summaries/function/<type>.txt**
+contain:
 
 .. table::
     :name: functiondeftable
@@ -618,13 +644,32 @@ Per function assignments in tables named function_<type>.txt contain:
     ====================  ===================================================================
     Header ID             Definition
     ====================  ===================================================================
-    <type>                either KO or EC into which counts have been summed
-    samples names         Non-normalized, per sample sum for this particular functional group
-    level_1               KEGG hierarchy [level 1] for KO defined in first column
-    level_2               KEGG hierarchy [level 2] for KO defined in first column
-    level_3               KEGG hierarchy [level 3] for KO defined in first column
+    <type>                either KO, EC, or product into which counts have been summed
+    samples names         non-normalized, per sample sum for this particular functional group
+    level_1               KEGG hierarchy [level 1] if KO defined in first column
+    level_2               KEGG hierarchy [level 2] if KO defined in first column
+    level_3               KEGG hierarchy [level 3] if KO defined in first column
     ====================  ===================================================================
 
+Combined
+````````
+
+Per taxonomy+function assignments in tables named
+**summaries/combined/<type>_<level>.txt** contain:
+
+.. table::
+    :name: combineddeftable
+
+    ====================  ====================================================================
+    Header ID             Definition
+    ====================  ====================================================================
+    <type>                either KO, EC, or product; counts are summed using <type>+<taxonomy>
+    taxonomy_<level>      taxonomic level; counts are summed using <type>+<taxonomy>
+    sample names          non-normalized, per sample sum for this particular functional group
+    level_1               KEGG hierarchy [level 1] if KO defined in first column
+    level_2               KEGG hierarchy [level 2] if KO defined in first column
+    level_3               KEGG hierarchy [level 3] if KO defined in first column
+    ====================  ====================================================================
 
 Downloads
 ---------
@@ -642,8 +687,8 @@ Downloads
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
-    p.add_argument("--decontamination-logs", nargs="+")
-    p.add_argument("--deduplication-logs", nargs="+")
+    p.add_argument("--clean-logs", nargs="+")
+    p.add_argument("--unique-logs", nargs="+")
     p.add_argument("--merge-logs", nargs="+")
     p.add_argument("--summary-tables", nargs="+")
     p.add_argument("--r1-quality-files", nargs="+")
@@ -654,8 +699,8 @@ if __name__ == "__main__":
     p.add_argument("taxonomy_function_table")
     args = p.parse_args()
     main(
-        args.decontamination_logs,
-        args.deduplication_logs,
+        args.clean_logs,
+        args.unique_logs,
         args.merge_logs,
         args.summary_tables,
         args.r1_quality_files,

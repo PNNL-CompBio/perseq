@@ -1,4 +1,12 @@
+# Running tests
 tests/
+.snakemake/
+diamond/
+kaiju/
+logs/
+quality_control/
+summaries/
+tables/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

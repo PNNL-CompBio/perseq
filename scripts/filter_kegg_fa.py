@@ -56,7 +56,14 @@ def main(misc_taxonomy, family_euks_faa):
             else:
                 if not exclude_sequence:
                     print(line)
-        print("Excluded", seen_and_excluded, "genes from", len(exclude), "species", file=sys.stderr)
+        print(
+            "Excluded",
+            seen_and_excluded,
+            "genes from",
+            len(exclude),
+            "species",
+            file=sys.stderr,
+        )
 
 
 if __name__ == "__main__":
