@@ -1,9 +1,7 @@
 __default__:
-    account: emsls50064
+    account: example
     time: 1440
     partition: small
     nodes: 1
     ntasks: 16
-    name: "logs/{rule}.{wildcards}"
-    output: "logs/{rule}.{wildcards}.out"
-    error: "logs/{rule}.{wildcards}.err"
+    name: "per-worker"
