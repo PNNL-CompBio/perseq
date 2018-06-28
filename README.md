@@ -79,6 +79,11 @@ contaminant_references:
 Hits to contaminant references are detailed in
 `quality_control/<sample>_03_<contaminant key>.fasta.gz`.
 
+Counts for each stage and initial sequence quality are summarized in the HTML report:
+
+![logo](resources/summary_table.png)
+
+![logo](resources/summary_quality.png)
 
 # Taxonomic Annotation
 
@@ -106,6 +111,9 @@ Expected files after building the database are:
 + nodes.dmp
 + kaiju_db.fmi
 
+To get a quick overview of the Kaiju assignments, `perseq` compiles absolute and relative abundance plots in the report:
+
+![logo](resources/summary_taxonomy.png)
 
 # Functional Annotation
 
