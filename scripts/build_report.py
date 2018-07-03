@@ -6,7 +6,6 @@ from collections import Counter, defaultdict
 import numpy as np
 import pandas as pd
 import plotly
-import plotly.figure_factory as ff
 import plotly.graph_objs as go
 from plotly.offline import iplot, offline
 from snakemake.utils import logger, report
@@ -38,29 +37,11 @@ SCRIPT = """
 
 def shannon_index(arr):
     """
-    >>> counter = Counter({'28DPL6Y5ZLJQ': 20.0,
-             '5JJ3I433OD4D': 3.0,
-             '66ZS8L2FIBHE': 189.0,
-             '7W0EEVTOR5VV': 1.0,
-             '8NZCUXPEUIKE': 2.0,
-             '8XTZF810ENMI': 486.0,
-             'C8PP69BX09ZZ': 4.0,
-             'CMULPOCAFROS': 2.0,
-             'E3BOBZO5MIX3': 2.0,
-             'E517B87AQ3XM': 2.0,
-             'EUDVJH6XLSY3': 3.0,
-             'F7O31BBBUDCE': 2.0,
-             'JWWBB7Y2PTQ4': 2.0,
-             'JYKOAK2U228V': 3.0,
-             'NAMWMPHCUBJC': 2.0,
-             'O5N7ADO5K9I4': 3.0,
-             'P34M5UNS6P9B': 6.0,
-             'RLU5W9AMJHFT': 123.0,
-             'RMPWYKVRSXNL': 1.0,
-             'T13Z885J5HJ4': 2.0,
-             'TUK6CZH506C1': 2.0,
-             'ZX7LUKOMKLA4': 3.0})
-    >>> shannon_index(np.array(list(counter.values())))
+    >>> arr = np.array([
+            20.0, 3.0, 189.0, 1.0, 2.0, 486.0, 4.0, 2.0, 2.0, 2.0, 3.0,
+            2.0, 2.0, 3.0, 2.0, 3.0, 6.0, 123.0, 1.0, 2.0, 2.0, 3.0
+        ])
+    >>> shannon_index(arr)
     1.32095...
     """
     total = sum(arr)
