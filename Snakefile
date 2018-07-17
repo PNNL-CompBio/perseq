@@ -299,7 +299,7 @@ rule add_full_taxonomy:
         """
         addTaxonNames -t {KAIJUDB}/nodes.dmp -n {KAIJUDB}/names.dmp \
             -i {input} -o {output} \
-            -r superkingdom,phylum,order,class,family,genus,species
+            -r superkingdom,phylum,class,order,family,genus,species
         """
 
 
