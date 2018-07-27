@@ -590,7 +590,7 @@ Per sample classifications in tables/ contain:
     product                    KEGG gene ID <semicolon> KEGG product
     read_id                    The sequence identifier (unique)
     kaiju_alignment_length     The length of the Kaiju hit
-    kaiju_classification       The Kaiju classification in order of superkingdom, phylum, order, class, family, genus, species; "NA" for each taxonomic level not defined
+    kaiju_classification       The Kaiju classification in order of superkingdom, phylum, class, order, family, genus, species; "NA" for each taxonomic level not defined
     blastx_lca_classification  The LCA result from the blastx HSPs
     =========================  ==========================================================================================================================================
 
