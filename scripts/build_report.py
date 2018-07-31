@@ -280,7 +280,6 @@ def make_plots(observations, summary_type):
         updatemenus=updatemenus,
         barmode="stack",
         height=700,
-        margin={"b": "auto", "r": "auto"},
         yaxis=dict(title=labels[summary_type]),
         showlegend=False,
         hovermode="closest",
@@ -393,7 +392,6 @@ def build_quality_plot(r1_quality_files):
             )
     layout = go.Layout(
         title="Mean Quality Scores for R1 and R2",
-        margin={"b": "auto", "r": "auto"},
         xaxis={"title": "Position"},
         yaxis={"title": "Quality (Phred score)"},
         hovermode="closest",
