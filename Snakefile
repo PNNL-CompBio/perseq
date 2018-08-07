@@ -121,6 +121,8 @@ rule all:
             sample=config["samples"].keys(),
             db=config["contaminant_references"].keys()),
         get_summaries(),
+        'build_krona/tax.krona.html',
+        'build_krona/ec.krona.html',
         "summary.html"
 
 
@@ -439,6 +441,61 @@ rule build_functional_and_tax_table:
             --tax-level {wildcards.tax_classification} --min-id {params.min_id} \
             --min-len {params.min_len} {input.json} {output} {input.tables}
         """
+rule build_ec:
+    input:
+        ec_file = 'summaries/function/ec.txt',
+        ec_converter = 'ec_converter.txt',
+        ec_dat_file = 'enzyme.dat',
+
+
+    output:
+        expand("build_krona/{sample}_ec.txt", sample=config["samples"].keys())
+    threads:
+        1
+    conda:
+        CONDAENV
+    shell:
+        """ 
+        python scripts/build_krona.py --ec_file {input.ec_converter} --dat_file {input.ec_dat_file} --ec_file_from_summaries {input.ec_file} \
+        --output build_krona
+
+        """
+
+
+rule build_tax:
+    input:
+        tax_file='summaries/taxonomy/order.txt'
+
+    output:
+        expand("build_krona/{sample}_tax.txt", sample=config["samples"].keys())
+
+    threads:
+        1
+    conda:
+        CONDAENV
+    shell:
+        """
+        python scripts/build_krona.py {input.tax_file} build_krona
+        """
+
+
+rule build_krona:
+    input:
+        tax = expand("build_krona/{sample}_tax.txt", sample=config["samples"].keys()),
+        ec = expand("build_krona/{sample}_ec.txt", sample=config["samples"].keys())
+    output:
+        tax = 'build_krona/tax.krona.html',
+        ec = 'build_krona/ec.krona.html'
+
+    threads:
+        1
+    conda:
+        CONDAENV
+    shell:
+        """
+        ktImportText {input.tax} -o {output.tax}
+        ktImportText {input.ec} -o {output.ec}
+        """
 
 
 rule build_report:
@@ -451,7 +508,9 @@ rule build_report:
         merge_logs = expand("logs/{sample}_merge_sequences.log", sample=config["samples"].keys()),
         function = "summaries/function/ko.txt",
         taxonomy = "summaries/taxonomy/phylum.txt",
-        combined = "summaries/combined/ko_phylum.txt"
+        combined = "summaries/combined/ko_phylum.txt",
+        krona_tax = "build_krona/tax.krona.html",
+        krona_ec = "build_krona/ec.krona.html"
     output:
         "summary.html"
     shell:
@@ -462,5 +521,5 @@ rule build_report:
             --summary-tables {input.classifications} \
             --r1-quality-files {input.ee_stats} \
             --html {output} \
-            {CONDAENV} {input.function} {input.taxonomy} {input.combined}
+            {CONDAENV} {input.function} {input.taxonomy} {input.combined} {input.krona_tax} {input.krona_ec}
         """
