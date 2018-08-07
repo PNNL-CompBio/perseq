@@ -6,6 +6,7 @@ from collections import Counter, defaultdict
 import numpy as np
 import pandas as pd
 import plotly
+import relatively
 import plotly.graph_objs as go
 from plotly.offline import iplot, offline
 from snakemake.utils import logger, report
@@ -34,64 +35,6 @@ SCRIPT = """
     </script>
 """
 
-
-def shannon_index(arr):
-    """
-    >>> arr = np.array([
-            20.0, 3.0, 189.0, 1.0, 2.0, 486.0, 4.0, 2.0, 2.0, 2.0, 3.0,
-            2.0, 2.0, 3.0, 2.0, 3.0, 6.0, 123.0, 1.0, 2.0, 2.0, 3.0
-        ])
-    >>> shannon_index(arr)
-    1.32095...
-    """
-    total = sum(arr)
-    return -1 * sum([(x / total) * np.log(x / total) for x in arr if x > 0])
-
-
-def parse_classifications_for_taxonomy(path):
-    """
-    SN1035:381:h3cv7bcx2:2:2202:3165:73750	-1	-1
-    SN1035:381:h3cv7bcx2:1:1105:7280:88523	67.5	40				111	Archaea; Thaumarchaeota; Nitrososphaerales; Nitrososphaeria; Nitrososphaeraceae; Candidatus Nitrosocosmicus; Candidatus Nitrocosmicus oleophilus;
-    SN1035:381:h3cv7bcx2:1:1204:20140:83036	78.4	37	ko:K00820	glmS, GFPT; glucosamine---fructose-6-phosphate aminotransferase (isomerizing)	2.6.1.16	229	Bacteria; Actinobacteria; NA; NA; NA; NA; Actinobacteria bacterium 13_1_40CM_66_12;
-    """
-    logger.info("Parsing {}".format(path))
-    # hardcoded tax levels :(
-    taxonomy_level_counter = {
-        "order": Counter(),
-        "class": Counter(),
-        "phylum": Counter(),
-    }
-    taxonomy_counter = Counter()
-    summary_counter = Counter()
-    with open(path) as fh:
-        # skip the header
-        next(fh)
-        for i, line in enumerate(fh, start=1):
-            toks = line.strip("\r\n").split("\t")
-            if toks[3]:
-                summary_counter.update(["Assigned\nFunction"])
-                if toks[7]:
-                    summary_counter.update(["Assigned\nBoth"])
-            if toks[7]:
-                taxonomy_counter.update([toks[7]])
-                taxonomy = [j.strip() for j in toks[7].split(";")]
-                taxonomy_level_counter["order"].update([taxonomy[3]])
-                taxonomy_level_counter["class"].update([taxonomy[2]])
-                taxonomy_level_counter["phylum"].update([taxonomy[1]])
-                summary_counter.update(["Assigned\nTaxonomy"])
-    idx = shannon_index(np.array(list(taxonomy_counter.values())))
-    return dict(
-        taxonomy_level_counter=taxonomy_level_counter,
-        summary_counter=summary_counter,
-        shannon=idx,
-    )
-
-
-def get_df_at_tax_level(count_obj, sample, tax_level):
-    df = pd.DataFrame(data=count_obj, index=[0]).transpose()
-    df.reset_index(inplace=True)
-    df.columns = [tax_level, sample]
-    return df
 
 
 def get_sample_order(lst):
@@ -130,167 +73,72 @@ def process_reads(df, tax_level, sample_order):
     # this just takes out the duplicate header
     sub_t.drop([tax_level], inplace=True)
     return sub_t, sub_perc_t
+#
+#
+# def compile_summary_df(classification_tables, tax_levels=["phylum", "class", "order"]):
+#     """
+#     Reads in multiple sample alignments from diamond in a given directory and merges them into
+#     a single pandas.DataFrame. It returns a pandas dataframe for each of th
+#     phylum that is ready to plug into the processing function. Also returns total counts
+#     which is necessary to calculate the percentage of total that is being represented
+#     """
+#     samples = []
+#     dfs = {}
+#     classifications_per_sample = {}
+#     for classification_table in classification_tables:
+#         sample = get_sample(classification_table, "_classifications.txt")
+#         parsed_taxonomy = parse_classifications_for_taxonomy(classification_table)
+#         samples.append([sample, parsed_taxonomy["shannon"]])
+#         # assigned #'s in summary table
+#         classifications_per_sample[sample] = parsed_taxonomy["summary_counter"]
+#         if len(dfs) == 0:
+#             for tax_level in tax_levels:
+#                 dfs[tax_level] = get_df_at_tax_level(
+#                     parsed_taxonomy["taxonomy_level_counter"][tax_level],
+#                     sample,
+#                     tax_level,
+#                 )
+#             continue
+#
+#         for tax_level in tax_levels:
+#             df = get_df_at_tax_level(
+#                 parsed_taxonomy["taxonomy_level_counter"][tax_level], sample, tax_level
+#             )
+#             dfs[tax_level] = dfs[tax_level].merge(df, on=tax_level, how="outer")
+#     return dfs
+    # # most diverse to least
+    # sample_order = get_sample_order(samples)
+    # observations_at_levels = {"Counts": dict(), "Percentage": dict()}
+    # for tax_level in tax_levels:
+    #     c, p = process_reads(dfs[tax_level], tax_level, sample_order)
+    #     observations_at_levels["Counts"][tax_level] = c
+    #     observations_at_levels["Percentage"][tax_level] = p
+    # return (
+    #     observations_at_levels,
+    #     pd.DataFrame.from_dict(classifications_per_sample, orient="index"),
+    # )
 
-
-def compile_summary_df(classification_tables, tax_levels=["phylum", "class", "order"]):
-    """
-    Reads in multiple sample alignments from diamond in a given directory and merges them into
-    a single pandas.DataFrame. It returns a pandas dataframe for each of th
-    phylum that is ready to plug into the processing function. Also returns total counts
-    which is necessary to calculate the percentage of total that is being represented
-    """
-    samples = []
-    dfs = {}
-    classifications_per_sample = {}
-    for classification_table in classification_tables:
-        sample = get_sample(classification_table, "_classifications.txt")
-        parsed_taxonomy = parse_classifications_for_taxonomy(classification_table)
-        samples.append([sample, parsed_taxonomy["shannon"]])
-        # assigned #'s in summary table
-        classifications_per_sample[sample] = parsed_taxonomy["summary_counter"]
-        if len(dfs) == 0:
-            for tax_level in tax_levels:
-                dfs[tax_level] = get_df_at_tax_level(
-                    parsed_taxonomy["taxonomy_level_counter"][tax_level],
-                    sample,
-                    tax_level,
-                )
-            continue
-
-        for tax_level in tax_levels:
-            df = get_df_at_tax_level(
-                parsed_taxonomy["taxonomy_level_counter"][tax_level], sample, tax_level
-            )
-            dfs[tax_level] = dfs[tax_level].merge(df, on=tax_level, how="outer")
-    # most diverse to least
-    sample_order = get_sample_order(samples)
-    observations_at_levels = {"Counts": dict(), "Percentage": dict()}
-    for tax_level in tax_levels:
-        c, p = process_reads(dfs[tax_level], tax_level, sample_order)
-        observations_at_levels["Counts"][tax_level] = c
-        observations_at_levels["Percentage"][tax_level] = p
-    return (
-        observations_at_levels,
-        pd.DataFrame.from_dict(classifications_per_sample, orient="index"),
-    )
-
-
-def make_plots(observations, summary_type):
-    # data traces are taxonomies across samples
-    labels = {"Percentage": "Relative Abundance", "Counts": "Counts"}
-    # tax levels are hardcoded at this point
-    data = (
-        [
-            go.Bar(
-                x=observations[summary_type]["phylum"].index,
-                y=observations[summary_type]["phylum"][tax],
-                name=tax,
-                text=tax,
-                hoverinfo="text+y",
-                visible=True,
-            )
-            for tax in observations[summary_type]["phylum"].columns.tolist()
-        ]
-        + [
-            go.Bar(
-                x=observations[summary_type]["class"].index,
-                y=observations[summary_type]["class"][tax],
-                name=tax,
-                text=tax,
-                hoverinfo="text+y",
-                visible=False,
-            )
-            for tax in observations[summary_type]["class"].columns.tolist()
-        ]
-        + [
-            go.Bar(
-                x=observations[summary_type]["order"].index,
-                y=observations[summary_type]["order"][tax],
-                name=tax,
-                text=tax,
-                hoverinfo="text+y",
-                visible=False,
-            )
-            for tax in observations[summary_type]["order"].columns.tolist()
-        ]
-    )
-    # the number of taxa
-    trace_length_phy = len(observations[summary_type]["phylum"].columns)
-    trace_length_cla = len(observations[summary_type]["class"].columns)
-    trace_length_ord = len(observations[summary_type]["order"].columns)
-    # plot buttons
-    updatemenus = list(
-        [
-            dict(
-                type="buttons",
-                active=0,
-                buttons=list(
-                    [
-                        dict(
-                            label="Phylum",
-                            method="update",
-                            args=[
-                                {
-                                    "visible": [True] * trace_length_phy
-                                    + [False] * trace_length_cla
-                                    + [False] * trace_length_ord
-                                },
-                                {"yaxis": {"title": labels[summary_type]}},
-                            ],
-                        ),
-                        dict(
-                            label="Class",
-                            method="update",
-                            args=[
-                                {
-                                    "visible": [False] * trace_length_phy
-                                    + [True] * trace_length_cla
-                                    + [False] * trace_length_ord
-                                },
-                                {"yaxis": {"title": labels[summary_type]}},
-                            ],
-                        ),
-                        dict(
-                            label="Order",
-                            method="update",
-                            args=[
-                                {
-                                    "visible": [False] * trace_length_phy
-                                    + [False] * trace_length_cla
-                                    + [True] * trace_length_ord
-                                },
-                                {"yaxis": {"title": labels[summary_type]}},
-                            ],
-                        ),
-                    ]
-                ),
-                direction="left",
-                pad={"r": 0, "t": 0},
-                showactive=True,
-                x=0,
-                xanchor="left",
-                y=1.2,
-                yanchor="top",
-            )
-        ]
-    )
-    # initial layout
-    layout = dict(
-        title="Assignments per Sample By {}".format(summary_type),
-        updatemenus=updatemenus,
-        barmode="stack",
-        height=700,
-        margin={"b": "auto", "r": "auto"},
-        yaxis=dict(title=labels[summary_type]),
-        showlegend=False,
-        hovermode="closest",
-    )
-    fig = go.Figure(data=data, layout=layout)
+def build_taxonomy_plot(txt, value_cols, height=900):
+    df = pd.read_table(txt)
+    levels = ["kingdom", "phylum", "class", "order"]
+    df[levels] = df["taxonomy_order"].str.split(";", expand=True)
+    df.head()
+    hierarchy = ["phylum", "class", "order"]
+    df[hierarchy] = df[hierarchy].fillna("NA")
+    df[value_cols] = df[value_cols].fillna(0)
+    df = df[hierarchy + value_cols]
+    dfs = relatively.get_dfs_across_hierarchy(df, hierarchy, value_cols, reorder='shannon')
+    fig = relatively.get_abundance_figure_from_dfs(
+        dfs, hierarchy, "Assigned Taxonomy Per Sample", height=height
+)
     return fig
 
-
+##NEED to change back to work with snakemake
 def get_sample(path, key):
-    return os.path.basename(path).partition(key)[0]
+    return [os.path.basename(item).partition(key)[0]for item in path]
+#
+# def get_sample(path, key):
+#     return [os.path.basename(item).partition(key)[0] for item in os.listdir(path)]
 
 
 def parse_merge_file(path):
@@ -444,23 +292,20 @@ def get_conda_env_str(conda_env_file):
 
 
 def main(
-    clean_logs,
-    unique_logs,
-    merge_logs,
     summary_tables,
-    r1_quality_files,
     html,
-    conda_env,
     function_table,
     taxonomy_table,
     taxonomy_function_table,
+    krona_tax,
+    krona_ec
 ):
-    observations_at_levels, classifications_per_sample = compile_summary_df(
-        summary_tables
-    )
-    div = {}
-    for v in ["Percentage", "Counts"]:
-        div[v] = offline.plot(make_plots(observations_at_levels, v), **PLOTLY_PARAMS)
+    value_cols = get_sample(summary_tables,'_classifications.txt')
+    fig = build_taxonomy_plot(taxonomy_table,value_cols)
+    plots = offline.plot(fig,**PLOTLY_PARAMS)
+    # div = {}
+    # for v in ["Percentage", "Counts"]:
+    #     div[v] = offline.plot(make_plots(observations_at_levels, v), **PLOTLY_PARAMS)
     html_tbl = parse_log_files(
         merge_logs, unique_logs, clean_logs, classifications_per_sample
     )
@@ -504,22 +349,16 @@ Sequence Quality
 
     {quality_plot}
 
-Taxonomy by Count
-*****************
+
+Taxonomy Assignment Summary
+***************************
 
 Samples are sorted based on their Shannon index calculated from taxonomically
 annotated sequences. The order is most to least diverse.
 
 .. raw:: html
 
-    {div[Counts]}
-
-Taxonomy by Percent
-*******************
-
-.. raw:: html
-
-    {div[Percentage]}
+    {plots}
 
 Methods
 -------
@@ -662,32 +501,28 @@ Downloads
         file1=function_table,
         file2=taxonomy_table,
         file3=taxonomy_function_table,
+        kronaplot_tax=krona_tax,
+        kronaplot_ec=krona_ec,
         stylesheet="",
     )
 
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
-    p.add_argument("--clean-logs", nargs="+")
-    p.add_argument("--unique-logs", nargs="+")
-    p.add_argument("--merge-logs", nargs="+")
     p.add_argument("--summary-tables", nargs="+")
-    p.add_argument("--r1-quality-files", nargs="+")
     p.add_argument("--html")
-    p.add_argument("conda_env")
     p.add_argument("function_table")
     p.add_argument("taxonomy_table")
     p.add_argument("taxonomy_function_table")
+    p.add_argument("krona_tax")
+    p.add_argument("krona_ec")
     args = p.parse_args()
     main(
-        args.clean_logs,
-        args.unique_logs,
-        args.merge_logs,
         args.summary_tables,
-        args.r1_quality_files,
         args.html,
-        args.conda_env,
         args.function_table,
         args.taxonomy_table,
         args.taxonomy_function_table,
+        args.krona_tax,
+        args.krona_ec,
     )
