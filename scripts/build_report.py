@@ -36,7 +36,6 @@ SCRIPT = """
 """
 
 
-
 def get_sample_order(lst):
     """
     >>> lst = [["j", 2],["o", 1],["e", 3]]
@@ -73,6 +72,8 @@ def process_reads(df, tax_level, sample_order):
     # this just takes out the duplicate header
     sub_t.drop([tax_level], inplace=True)
     return sub_t, sub_perc_t
+
+
 #
 #
 # def compile_summary_df(classification_tables, tax_levels=["phylum", "class", "order"]):
@@ -106,17 +107,18 @@ def process_reads(df, tax_level, sample_order):
 #             )
 #             dfs[tax_level] = dfs[tax_level].merge(df, on=tax_level, how="outer")
 #     return dfs
-    # # most diverse to least
-    # sample_order = get_sample_order(samples)
-    # observations_at_levels = {"Counts": dict(), "Percentage": dict()}
-    # for tax_level in tax_levels:
-    #     c, p = process_reads(dfs[tax_level], tax_level, sample_order)
-    #     observations_at_levels["Counts"][tax_level] = c
-    #     observations_at_levels["Percentage"][tax_level] = p
-    # return (
-    #     observations_at_levels,
-    #     pd.DataFrame.from_dict(classifications_per_sample, orient="index"),
-    # )
+# # most diverse to least
+# sample_order = get_sample_order(samples)
+# observations_at_levels = {"Counts": dict(), "Percentage": dict()}
+# for tax_level in tax_levels:
+#     c, p = process_reads(dfs[tax_level], tax_level, sample_order)
+#     observations_at_levels["Counts"][tax_level] = c
+#     observations_at_levels["Percentage"][tax_level] = p
+# return (
+#     observations_at_levels,
+#     pd.DataFrame.from_dict(classifications_per_sample, orient="index"),
+# )
+
 
 def build_taxonomy_plot(txt, value_cols, height=900):
     df = pd.read_table(txt)
@@ -127,15 +129,20 @@ def build_taxonomy_plot(txt, value_cols, height=900):
     df[hierarchy] = df[hierarchy].fillna("NA")
     df[value_cols] = df[value_cols].fillna(0)
     df = df[hierarchy + value_cols]
-    dfs = relatively.get_dfs_across_hierarchy(df, hierarchy, value_cols, reorder='shannon')
+    dfs = relatively.get_dfs_across_hierarchy(
+        df, hierarchy, value_cols, reorder="shannon"
+    )
     fig = relatively.get_abundance_figure_from_dfs(
         dfs, hierarchy, "Assigned Taxonomy Per Sample", height=height
-)
+    )
     return fig
+
 
 ##NEED to change back to work with snakemake
 def get_sample(path, key):
-    return [os.path.basename(item).partition(key)[0]for item in path]
+    return [os.path.basename(item).partition(key)[0] for item in path]
+
+
 #
 # def get_sample(path, key):
 #     return [os.path.basename(item).partition(key)[0] for item in os.listdir(path)]
@@ -298,11 +305,11 @@ def main(
     taxonomy_table,
     taxonomy_function_table,
     krona_tax,
-    krona_ec
+    krona_ec,
 ):
-    value_cols = get_sample(summary_tables,'_classifications.txt')
-    fig = build_taxonomy_plot(taxonomy_table,value_cols)
-    plots = offline.plot(fig,**PLOTLY_PARAMS)
+    value_cols = get_sample(summary_tables, "_classifications.txt")
+    fig = build_taxonomy_plot(taxonomy_table, value_cols)
+    plots = offline.plot(fig, **PLOTLY_PARAMS)
     # div = {}
     # for v in ["Percentage", "Counts"]:
     #     div[v] = offline.plot(make_plots(observations_at_levels, v), **PLOTLY_PARAMS)

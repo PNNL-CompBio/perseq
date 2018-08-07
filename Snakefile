@@ -455,8 +455,9 @@ rule build_ec:
     conda:
         CONDAENV
     shell:
-        """ 
-        python scripts/build_krona.py --ec_file {input.ec_converter} --dat_file {input.ec_dat_file} --ec_file_from_summaries {input.ec_file} \
+        """
+        python scripts/build_krona.py --ec_file {input.ec_converter} \
+        --dat_file {input.ec_dat_file} --ec_file_from_summaries {input.ec_file} \
         --output build_krona
 
         """
@@ -521,5 +522,6 @@ rule build_report:
             --summary-tables {input.classifications} \
             --r1-quality-files {input.ee_stats} \
             --html {output} \
-            {CONDAENV} {input.function} {input.taxonomy} {input.combined} {input.krona_tax} {input.krona_ec}
+            {CONDAENV} {input.function} {input.taxonomy} {input.combined} \
+            {input.krona_tax} {input.krona_ec}
         """
