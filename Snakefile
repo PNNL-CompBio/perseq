@@ -115,14 +115,10 @@ CONDAENV = "envs/environment.yml"
 
 rule all:
     input:
-        expand("logs/{sample}_{idx}_eestats.txt",
-            sample=config["samples"].keys(), idx=["R1", "R2"]),
         expand("quality_control/{sample}_03_{db}.fasta.gz",
             sample=config["samples"].keys(),
             db=config["contaminant_references"].keys()),
         get_summaries(),
-        'build_krona/tax.krona.html',
-        'build_krona/ec.krona.html',
         "summary.html"
 
 
@@ -441,53 +437,49 @@ rule build_functional_and_tax_table:
             --tax-level {wildcards.tax_classification} --min-id {params.min_id} \
             --min-len {params.min_len} {input.json} {output} {input.tables}
         """
-rule build_ec:
+
+
+rule build_krona_ec_input:
     input:
         ec_file = 'summaries/function/ec.txt',
         ec_converter = 'ec_converter.txt',
-        ec_dat_file = 'enzyme.dat',
-
-
+        ec_dat_file = 'enzyme.dat'
     output:
-        expand("build_krona/{sample}_ec.txt", sample=config["samples"].keys())
+        expand("krona_plots/{sample}_ec.txt", sample=config["samples"].keys())
     threads:
         1
     conda:
         CONDAENV
     shell:
         """
-        python scripts/build_krona.py --ec_file {input.ec_converter} \
-        --dat_file {input.ec_dat_file} --ec_file_from_summaries {input.ec_file} \
-        --output build_krona
-
+        python scripts/krona_plots.py --ec-file {input.ec_converter} \
+            --dat-file {input.ec_dat_file} --ec-file-from-summaries {input.ec_file} \
+            --output krona_plots
         """
 
 
-rule build_tax:
+rule build_krona_taxonomy_input:
     input:
         tax_file='summaries/taxonomy/order.txt'
-
     output:
-        expand("build_krona/{sample}_tax.txt", sample=config["samples"].keys())
-
+        expand("krona_plots/{sample}_tax.txt", sample=config["samples"].keys())
     threads:
         1
     conda:
         CONDAENV
     shell:
         """
-        python scripts/build_krona.py {input.tax_file} build_krona
+        python scripts/krona_plots.py {input.tax_file} krona_plots
         """
 
 
-rule build_krona:
+rule build_krona_plots:
     input:
-        tax = expand("build_krona/{sample}_tax.txt", sample=config["samples"].keys()),
-        ec = expand("build_krona/{sample}_ec.txt", sample=config["samples"].keys())
+        tax = expand("krona_plots/{sample}_tax.txt", sample=config["samples"].keys()),
+        ec = expand("krona_plots/{sample}_ec.txt", sample=config["samples"].keys())
     output:
-        tax = 'build_krona/tax.krona.html',
-        ec = 'build_krona/ec.krona.html'
-
+        tax = 'krona_plots/tax.krona.html',
+        ec = 'krona_plots/ec.krona.html'
     threads:
         1
     conda:
@@ -510,8 +502,8 @@ rule build_report:
         function = "summaries/function/ko.txt",
         taxonomy = "summaries/taxonomy/phylum.txt",
         combined = "summaries/combined/ko_phylum.txt",
-        krona_tax = "build_krona/tax.krona.html",
-        krona_ec = "build_krona/ec.krona.html"
+        krona_tax = "krona_plots/tax.krona.html",
+        krona_ec = "krona_plots/ec.krona.html"
     output:
         "summary.html"
     shell:
