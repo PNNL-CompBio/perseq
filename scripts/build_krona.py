@@ -17,11 +17,10 @@ def build_tax(tax_file, output):
     test_tax = pd.read_table(tax_file)
     col_names = list(test_tax)[1:]
     taxonomies = ["Kingdom", "Phylum", "Class", "Order"]
-    for i, item in enumerate(taxonomies, 0):
-        test_tax[item] = test_tax.taxonomy_order.str.split("; ").str.get(i)
-    # proposed cleanup for above
-    # I don't think this proposal works so I tried a for loop above
-    # test_tax[["Kingdom", "Phylum", "Class", "Order"]] = test_tax.taxonomy_order.str.split("; ").str[0:4]
+    # split taxonomy column into hierarchy
+    test_tax[
+        ["Kingdom", "Phylum", "Class", "Order"]
+    ] = test_tax.taxonomy_order.str.split("; ", expand=True)
     # generate individual files per sample
     for item in col_names:
         df_name = f"test_tax_{item}"
