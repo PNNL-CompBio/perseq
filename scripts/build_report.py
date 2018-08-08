@@ -45,36 +45,6 @@ def get_sample_order(lst):
     return [i[0] for i in sorted(lst, key=lambda x: x[1], reverse=True)]
 
 
-def process_reads(df, tax_level, sample_order):
-    """
-    This function will take the merged reads from the file and put them into a graphable
-    form for both counts and percents. It will return both.
-    """
-    header = df.columns.tolist()
-    df["summed_col"] = df[sample_order].sum(axis=1)
-    # sort df by taxon abundance which organizes the traces in the plots
-    df.sort_values(by="summed_col", ascending=False, inplace=True)
-    # drop the extra column
-    df = df[header]
-    # sort by diversity
-    sub = df[[tax_level] + sample_order].copy()
-    cols = sub[tax_level].tolist()
-    # find the relative percent
-    sub_perc_t = sub[sample_order].div(sub[sample_order].sum())
-    sub_perc_t = sub_perc_t * 100
-    sub_perc_t = sub_perc_t.transpose()
-    # reset the names
-    sub_perc_t.columns = cols
-    # these are just the counts
-    # needs to be in this form or it wont work
-    sub_t = sub.transpose()
-    # set the column names as the taxonomy levels
-    sub_t.columns = sub_t.loc[tax_level]
-    # this just takes out the duplicate header
-    sub_t.drop([tax_level], inplace=True)
-    return sub_t, sub_perc_t
-
-
 def build_taxonomy_plot(txt, value_cols, height=900):
     df = pd.read_table(txt)
     levels = ["kingdom", "phylum", "class", "order"]
@@ -94,6 +64,39 @@ def build_taxonomy_plot(txt, value_cols, height=900):
 
 def get_sample(path, key):
     return [os.path.basename(item).partition(key)[0] for item in os.listdir(path)]
+
+
+def compile_summary_df(classification_tables, tax_levels=["phylum", "class", "order"]):
+    """
+    Reads in multiple sample alignments from diamond in a given directory and merges them into
+    a single pandas.DataFrame. It returns a pandas dataframe for each of th
+    phylum that is ready to plug into the processing function. Also returns total counts
+    which is necessary to calculate the percentage of total that is being represented
+    """
+    samples = []
+    dfs = {}
+    classifications_per_sample = {}
+    for classification_table in classification_tables:
+        sample = get_sample(classification_table, "_classifications.txt")
+        parsed_taxonomy = parse_classifications_for_taxonomy(classification_table)
+        samples.append([sample, parsed_taxonomy["shannon"]])
+        # assigned #'s in summary table
+        classifications_per_sample[sample] = parsed_taxonomy["summary_counter"]
+        if len(dfs) == 0:
+            for tax_level in tax_levels:
+                dfs[tax_level] = get_df_at_tax_level(
+                    parsed_taxonomy["taxonomy_level_counter"][tax_level],
+                    sample,
+                    tax_level,
+                )
+            continue
+
+        for tax_level in tax_levels:
+            df = get_df_at_tax_level(
+                parsed_taxonomy["taxonomy_level_counter"][tax_level], sample, tax_level
+            )
+            dfs[tax_level] = dfs[tax_level].merge(df, on=tax_level, how="outer")
+    return (pd.DataFrame.from_dict(classifications_per_sample, orient="index"),)
 
 
 def parse_merge_file(path):
@@ -255,6 +258,7 @@ def main(
     krona_tax,
     krona_ec,
 ):
+    classifications_per_sample = compile_summary_df(summary_tables)
     value_cols = get_sample(summary_tables, "_classifications.txt")
     fig = build_taxonomy_plot(taxonomy_table, value_cols)
     plots = offline.plot(fig, **PLOTLY_PARAMS)
