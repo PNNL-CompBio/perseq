@@ -8,6 +8,7 @@ dependencies:
     - click=6.7
     - diamond=0.9.21
     - kaiju=1.6.2
+    - krona=2.7
     - numpy
     - pandas=0.23.1
     - plotly=2.7.0
