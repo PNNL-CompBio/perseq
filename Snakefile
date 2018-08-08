@@ -454,7 +454,7 @@ rule build_krona_ec_input:
         """
         python scripts/krona_plots.py --ec-file {input.ec_converter} \
             --dat-file {input.ec_dat_file} --ec-file-from-summaries {input.ec_file} \
-            --output krona_plots
+            krona_plots
         """
 
 
