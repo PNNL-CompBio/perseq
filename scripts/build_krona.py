@@ -1,7 +1,5 @@
 #!/usr/bin/env python
 import argparse
-import re
-import sys
 from collections import defaultdict
 
 import pandas as pd
@@ -131,7 +129,7 @@ def build_ec_output(new_ec_dict, ec_file_from_summaries, parsed_dict, output):
 
 
 def main(tax_file, output, ec_file, ec_file_from_summaries, dat_file):
-    if len(sys.argv) == 2:
+    if tax_file is not None:
         build_tax(tax_file, output)
     else:
         new_ec_dict = parse_ec_file(ec_file_from_summaries)
@@ -146,7 +144,7 @@ if __name__ == "__main__":
         type=str,
         help="file that contains the order information from Kaiju alignments",
     )
-    p.add_argument("--output", type=str, help="output directory name")
+    p.add_argument("output", type=str, help="output directory name")
     p.add_argument(
         "--ec-file", type=str, help="converter file that contains full ec hierarchy"
     )
