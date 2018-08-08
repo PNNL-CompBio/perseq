@@ -1,24 +1,28 @@
 #!/usr/bin/env python
 import argparse
-import pandas as pd
 import re
 import sys
 from collections import defaultdict
 
+import pandas as pd
+
 
 def build_tax(tax_file, output):
-    """Takes in the file to the order level in classification_txt rule
+    """
+    Takes in the file to the order level in classification_txt rule
     and parses those to put them into a form then calls Krona Plot in order to build
     a hierarchical graph of the taxa present in the sample
     """
     # read in tax file to order level from build_tax_table rule
     test_tax = pd.read_table(tax_file)
     col_names = list(test_tax)[1:]
-    # seperate the taxonomic levels into separate columns
+    # separate the taxonomic levels into columns
     test_tax["Kingdom"] = test_tax.taxonomy_order.str.split("; ").str.get(0)
     test_tax["Phylum"] = test_tax.taxonomy_order.str.split("; ").str.get(1)
     test_tax["Class"] = test_tax.taxonomy_order.str.split("; ").str.get(2)
     test_tax["Order"] = test_tax.taxonomy_order.str.split("; ").str.get(3)
+    # proposed cleanup for above
+    # test_tax[["Kingdom", "Phylum", "Class", "Order"]] = test_tax.taxonomy_order.str.split("; ").str[0:4]
     # generate individual files per sample
     for item in col_names:
         df_name = f"test_tax_{item}"
@@ -30,13 +34,12 @@ def build_tax(tax_file, output):
         )
 
 
-##run bash command on all of the different files that are made above
-
-
 def build_ec(output, ec_file, ec_file_from_summaries, dat_file):
-    """Parses enzyme commission numbers in their hierarchy. Also Parses
+    """
+    Parses enzyme commission numbers in their hierarchy. Also Parses
     the function_ec.txt file to determine what enzyme pathways are present in the
-    samples. Builds a KronaPlot of this hirarchical data as well"""
+    samples. Builds a KronaPlot of this hirarchical data as well
+    """
 
     with open(ec_file) as file, open(dat_file) as dat_file:
         d = defaultdict(list)
@@ -61,23 +64,28 @@ def build_ec(output, ec_file, ec_file_from_summaries, dat_file):
                 d[path].insert(1, second_level)
 
         n = 0
+        # FIXME this should be compiled
         regex = r"^[0-9]+[\.]"
         # need to grab the lowest level of ec numbers
         for line in dat_file:
+            # FIXME why is this in a try/except block?
             try:
                 if line.startswith("ID"):
                     line = line.strip().split("  ")[1].strip()
             except:
                 pass
                 # print('problem line',line)
-            # print(line)
+            # use compiled regex
             if re.match(regex, line):
                 # print('match',line)
+                # FIXME i would change this so we're not iterating over the thing being iterated upon in the loop
                 desc = next(dat_file).split("  ")[1].strip()
                 first_levels = d[line.rpartition(".")[0] + ".-"]
                 for level in first_levels:
                     d[line].append(level)
                 d[line].append(desc)
+    # FIXME everything above this line should be its own function
+    # FIXME why not 'with' block here?
     ec_file_sum = open(ec_file_from_summaries)
     next(ec_file_sum)
     new_ec_dict = {"ec": []}
@@ -101,6 +109,7 @@ def build_ec(output, ec_file, ec_file_from_summaries, dat_file):
                 elif item[:1] == first_item[:1]:
                     new_ec_dict["ec"].append(item[:1] + ".-.-.-")
     ec_file_sum.close()
+    # FIXME everthing above this line should be its own function
     # build dictionary
     ec_replace = pd.DataFrame.from_dict(new_ec_dict)
     ec_table = pd.read_table(ec_file_from_summaries)
@@ -116,7 +125,7 @@ def build_ec(output, ec_file, ec_file_from_summaries, dat_file):
     grouped_ec_tbl = grouped_ec_tbl.rename(
         columns={0: "level_1", 1: "level_2", 2: "level_3", 3: "level_4"}
     )
-    # split the samples into seperate files
+    # split the samples into separate files
     for item in col_names:
         df_name = f"test_tax_{item}"
         df_name = grouped_ec_tbl[
@@ -143,21 +152,21 @@ if __name__ == "__main__":
     #     "ec_functional_file", help="convert blastx references to KO (hsa:9373<TAB>ko:K14018)"
     # )
     p.add_argument(
-        "--tax_file",
+        "--tax-file",
         type=str,
         help="file that contains the order information from Kaiju alignments",
     )
     p.add_argument("--output", type=str, help="output directory name")
     p.add_argument(
-        "--ec_file", type=str, help="converter file that contains full ec hierarchy"
+        "--ec-file", type=str, help="converter file that contains full ec hierarchy"
     )
     p.add_argument(
-        "--ec_file_from_summaries",
+        "--ec-file-from-summaries",
         type=str,
         help="file that contains the ec numbers from the diamond alignment",
     )
     p.add_argument(
-        "--dat_file",
+        "--dat-file",
         type=str,
         help="enzyme.dat file that has the lowest level of ec classification",
     )
