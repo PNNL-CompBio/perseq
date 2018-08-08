@@ -16,8 +16,8 @@ def build_tax(tax_file, output):
     # read in tax file to order level from build_tax_table rule
     test_tax = pd.read_table(tax_file)
     col_names = list(test_tax)[1:]
-    taxonomies = ['Kingdom','Phylum','Class','Order']
-    for i,item in enumerate(taxonomies,0):
+    taxonomies = ["Kingdom", "Phylum", "Class", "Order"]
+    for i, item in enumerate(taxonomies, 0):
         test_tax[item] = test_tax.taxonomy_order.str.split("; ").str.get(i)
     # proposed cleanup for above
     # I don't think this proposal works so I tried a for loop above
@@ -73,10 +73,10 @@ def build_ec_dict(ec_file, dat_file):
 
 
 def parse_ec_file(ec_file_from_summaries):
-    '''
+    """
     Split sequences that aligned to multiple ec numbers into last common ec number
     shared amongst matches
-    '''
+    """
     with open(ec_file_from_summaries) as ec_file_sum:
 
         next(ec_file_sum)
@@ -102,19 +102,20 @@ def parse_ec_file(ec_file_from_summaries):
                         new_ec_dict["ec"].append(item[:1] + ".-.-.-")
     return new_ec_dict
 
-def build_ec_output(new_ec_dict,ec_file_from_summaries,parsed_dict,output):
-    '''
+
+def build_ec_output(new_ec_dict, ec_file_from_summaries, parsed_dict, output):
+    """
     Splits the ec number counts and hierarchy by sample
-    '''
+    """
     ec_replace = pd.DataFrame.from_dict(new_ec_dict)
     ec_table = pd.read_table(ec_file_from_summaries)
     col_names = list(ec_table)[1:]
     ec_table["ec"] = ec_replace["ec"]
     ec_hier_dict = pd.DataFrame.from_dict(parsed_dict, orient="index").reset_index()
     ec_hier_dict = ec_hier_dict.rename(columns={"index": "ec"})
-    #print(ec_hier_dict.head(5))
+    # print(ec_hier_dict.head(5))
     grouped_ec_tbl = ec_table.merge(ec_hier_dict, on="ec", how="inner")
-    #print(grouped_ec_tbl.head(5))
+    # print(grouped_ec_tbl.head(5))
     grouped_ec_tbl = grouped_ec_tbl.rename(
         columns={0: "level_1", 1: "level_2", 2: "level_3", 3: "level_4"}
     )
@@ -135,8 +136,8 @@ def main(tax_file, output, ec_file, ec_file_from_summaries, dat_file):
         build_tax(tax_file, output)
     else:
         new_ec_dict = parse_ec_file(ec_file_from_summaries)
-        parsed_dict = build_ec_dict(ec_file,dat_file)
-        build_ec_output(new_ec_dict, ec_file_from_summaries, parsed_dict,output)
+        parsed_dict = build_ec_dict(ec_file, dat_file)
+        build_ec_output(new_ec_dict, ec_file_from_summaries, parsed_dict, output)
 
 
 if __name__ == "__main__":
