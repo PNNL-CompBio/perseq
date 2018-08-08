@@ -6,10 +6,11 @@ from collections import Counter, defaultdict
 import numpy as np
 import pandas as pd
 import plotly
-import relatively
 import plotly.graph_objs as go
 from plotly.offline import iplot, offline
 from snakemake.utils import logger, report
+
+import relatively
 
 PLOTLY_PARAMS = dict(
     include_plotlyjs=False, show_link=False, output_type="div", image_height=700
@@ -74,57 +75,10 @@ def process_reads(df, tax_level, sample_order):
     return sub_t, sub_perc_t
 
 
-#
-#
-# def compile_summary_df(classification_tables, tax_levels=["phylum", "class", "order"]):
-#     """
-#     Reads in multiple sample alignments from diamond in a given directory and merges them into
-#     a single pandas.DataFrame. It returns a pandas dataframe for each of th
-#     phylum that is ready to plug into the processing function. Also returns total counts
-#     which is necessary to calculate the percentage of total that is being represented
-#     """
-#     samples = []
-#     dfs = {}
-#     classifications_per_sample = {}
-#     for classification_table in classification_tables:
-#         sample = get_sample(classification_table, "_classifications.txt")
-#         parsed_taxonomy = parse_classifications_for_taxonomy(classification_table)
-#         samples.append([sample, parsed_taxonomy["shannon"]])
-#         # assigned #'s in summary table
-#         classifications_per_sample[sample] = parsed_taxonomy["summary_counter"]
-#         if len(dfs) == 0:
-#             for tax_level in tax_levels:
-#                 dfs[tax_level] = get_df_at_tax_level(
-#                     parsed_taxonomy["taxonomy_level_counter"][tax_level],
-#                     sample,
-#                     tax_level,
-#                 )
-#             continue
-#
-#         for tax_level in tax_levels:
-#             df = get_df_at_tax_level(
-#                 parsed_taxonomy["taxonomy_level_counter"][tax_level], sample, tax_level
-#             )
-#             dfs[tax_level] = dfs[tax_level].merge(df, on=tax_level, how="outer")
-#     return dfs
-# # most diverse to least
-# sample_order = get_sample_order(samples)
-# observations_at_levels = {"Counts": dict(), "Percentage": dict()}
-# for tax_level in tax_levels:
-#     c, p = process_reads(dfs[tax_level], tax_level, sample_order)
-#     observations_at_levels["Counts"][tax_level] = c
-#     observations_at_levels["Percentage"][tax_level] = p
-# return (
-#     observations_at_levels,
-#     pd.DataFrame.from_dict(classifications_per_sample, orient="index"),
-# )
-
-
 def build_taxonomy_plot(txt, value_cols, height=900):
     df = pd.read_table(txt)
     levels = ["kingdom", "phylum", "class", "order"]
     df[levels] = df["taxonomy_order"].str.split(";", expand=True)
-    df.head()
     hierarchy = ["phylum", "class", "order"]
     df[hierarchy] = df[hierarchy].fillna("NA")
     df[value_cols] = df[value_cols].fillna(0)
@@ -138,14 +92,8 @@ def build_taxonomy_plot(txt, value_cols, height=900):
     return fig
 
 
-##NEED to change back to work with snakemake
 def get_sample(path, key):
-    return [os.path.basename(item).partition(key)[0] for item in path]
-
-
-#
-# def get_sample(path, key):
-#     return [os.path.basename(item).partition(key)[0] for item in os.listdir(path)]
+    return [os.path.basename(item).partition(key)[0] for item in os.listdir(path)]
 
 
 def parse_merge_file(path):
@@ -310,9 +258,6 @@ def main(
     value_cols = get_sample(summary_tables, "_classifications.txt")
     fig = build_taxonomy_plot(taxonomy_table, value_cols)
     plots = offline.plot(fig, **PLOTLY_PARAMS)
-    # div = {}
-    # for v in ["Percentage", "Counts"]:
-    #     div[v] = offline.plot(make_plots(observations_at_levels, v), **PLOTLY_PARAMS)
     html_tbl = parse_log_files(
         merge_logs, unique_logs, clean_logs, classifications_per_sample
     )
