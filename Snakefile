@@ -107,17 +107,15 @@ def get_summaries():
         taxonomy=taxonomy))
     return file_paths
 
+
 def subsample(wildcards):
-    sample = config.get("subsample",-1)
-        # logger.error("'data' dir with FASTQs has not been set; pass --config data=/path")
-        # sys.exit(1)
+    # FIXME what if the user puts in "No"
+    sample = config.get("subsample", -1)
     if sample < 0:
         return config["samples"][wildcards.sample]
-
     else:
-        return {"R1": 'subsampled/{wildcards.sample}_R1.fastq'.format(wildcards=wildcards), "R2":'subsampled/{wildcards.sample}_R2.fastq'.format(wildcards=wildcards)}
-
-
+        return {"R1": "subsampled/{wildcards.sample}_R1.fastq".format(wildcards=wildcards),
+            "R2":"subsampled/{wildcards.sample}_R2.fastq".format(wildcards=wildcards)}
 
 
 get_samples_from_dir(config)
@@ -132,7 +130,6 @@ rule all:
             db=config["contaminant_references"].keys()),
         get_summaries(),
         "summary.html"
-
 
 
 rule get_raw_fastq_qualities:
@@ -152,26 +149,31 @@ rule get_raw_fastq_qualities:
         """
 
 
-rule sub_sample:
+# TODO write this rule so that it operates on a single index
+rule subsample:
     input:
         unpack(lambda wildcards: config["samples"][wildcards.sample])
     output:
-        R1 = "subsampled/{sample}_R1.fastq",
-        R2 = "subsampled/{sample}_R2.fastq"
+        R1 = "subsampled/{sample}_R1.fastq.gz",
+        R2 = "subsampled/{sample}_R2.fastq.gz"
     params:
-        subsample = config.get("subsample",60000)
+        subsample = config.get("subsample", 60000)
+    threads:
+        1
+    conda:
+        CONDAENV
+    group:
+        "sample_group"
     shell:
         """
-          seqtk sample -s100 {input.R1} {params.subsample}> {output.R1}
-          seqtk sample -s100 {input.R2} {params.subsample}> {output.R2}
+          seqtk sample -s100 {input.R1} {params.subsample} | gzip > {output.R1}
+          seqtk sample -s100 {input.R2} {params.subsample} | gzip > {output.R2}
         """
+
 
 rule merge_sequences:
     input:
         unpack(subsample)
-        #TODO build a function to decide which input to accept and also ignore if they give a negative subsampling number
-        # R1 = "subsampled/{sample}_R1.fq",
-        # R2 = "subsampled/{sample}_R2.fq"
     output:
         merged = "quality_control/{sample}_01_merged.fastq.gz",
         R1 = "quality_control/{sample}_01_unmerged_R1.fastq.gz",
@@ -405,7 +407,7 @@ rule download_kegg_hierarchy:
 
 rule build_functional_table:
     input:
-        tables = expand('tables/{sample}_classifications.txt', sample=config["samples"].keys()),
+        tables = expand("tables/{sample}_classifications.txt", sample=config["samples"].keys()),
         json = rules.download_kegg_hierarchy.output
     output:
         "summaries/function/{function}.txt"
@@ -427,7 +429,7 @@ rule build_functional_table:
 
 rule build_tax_table:
     input:
-        tables = expand('tables/{sample}_classifications.txt', sample=config["samples"].keys()),
+        tables = expand("tables/{sample}_classifications.txt", sample=config["samples"].keys()),
         json = rules.download_kegg_hierarchy.output
     output:
         "summaries/taxonomy/{tax_classification}.txt"
@@ -449,7 +451,7 @@ rule build_tax_table:
 
 rule build_functional_and_tax_table:
     input:
-        tables = expand('tables/{sample}_classifications.txt', sample=config["samples"].keys()),
+        tables = expand("tables/{sample}_classifications.txt", sample=config["samples"].keys()),
         json = rules.download_kegg_hierarchy.output
     output:
         "summaries/combined/{function}_{tax_classification}.txt"
@@ -471,7 +473,7 @@ rule build_functional_and_tax_table:
 
 rule build_krona_ec_input:
     input:
-        ec_file = 'summaries/function/ec.txt',
+        ec_file = "summaries/function/ec.txt",
         ec_converter = config["ec_converter"],
         ec_dat_file = config["enzyme_dat_file"]
     output:
@@ -490,7 +492,7 @@ rule build_krona_ec_input:
 
 rule build_krona_taxonomy_input:
     input:
-        tax_file='summaries/taxonomy/order.txt'
+        tax_file="summaries/taxonomy/order.txt"
     output:
         expand("krona_plots/{sample}_tax.txt", sample=config["samples"].keys())
     threads:
@@ -508,8 +510,8 @@ rule build_krona_plots:
         tax = expand("krona_plots/{sample}_tax.txt", sample=config["samples"].keys()),
         ec = expand("krona_plots/{sample}_ec.txt", sample=config["samples"].keys())
     output:
-        tax = 'krona_plots/tax.krona.html',
-        ec = 'krona_plots/ec.krona.html'
+        tax = "krona_plots/tax.krona.html",
+        ec = "krona_plots/ec.krona.html"
     threads:
         1
     conda:
@@ -521,10 +523,12 @@ rule build_krona_plots:
         """
 
 
+# FIXME I think these need to be passed as patterns like 'logs/*_R1_eestats.txt'
+# and resolved in build_report.py using `glob()` [from glob import glob]
 rule build_report:
     input:
         classifications = expand("tables/{sample}_classifications.txt", sample=config["samples"].keys()),
-        ee_stats = expand("logs/{sample}_R1_eestats.txt", sample=config["samples"].keys()),
+        ee_stats = expand("logs/{sample}_{idx}_eestats.txt", sample=config["samples"].keys(), idx=["R1", "R2"]),
         clean_length_logs = expand("logs/{sample}_03_clean_readlengths.txt", sample=config["samples"].keys()),
         unique_length_logs = expand("logs/{sample}_02_unique_readlengths.txt", sample=config["samples"].keys()),
         clean_logs = expand("logs/{sample}_decontamination.log", sample=config["samples"].keys()),
