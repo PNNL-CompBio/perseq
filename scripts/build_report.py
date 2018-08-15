@@ -96,7 +96,138 @@ def compile_summary_df(classification_tables, tax_levels=["phylum", "class", "or
                 parsed_taxonomy["taxonomy_level_counter"][tax_level], sample, tax_level
             )
             dfs[tax_level] = dfs[tax_level].merge(df, on=tax_level, how="outer")
+<<<<<<< HEAD
     return (pd.DataFrame.from_dict(classifications_per_sample, orient="index"),)
+=======
+    # most diverse to least
+    sample_order = get_sample_order(samples)
+    observations_at_levels = {"Counts": dict(), "Percentage": dict()}
+    for tax_level in tax_levels:
+        c, p = process_reads(dfs[tax_level], tax_level, sample_order)
+        observations_at_levels["Counts"][tax_level] = c
+        observations_at_levels["Percentage"][tax_level] = p
+    return (
+        observations_at_levels,
+        pd.DataFrame.from_dict(classifications_per_sample, orient="index"),
+    )
+
+
+def make_plots(observations, summary_type):
+    # data traces are taxonomies across samples
+    labels = {"Percentage": "Relative Abundance", "Counts": "Counts"}
+    # tax levels are hardcoded at this point
+    data = (
+        [
+            go.Bar(
+                x=observations[summary_type]["phylum"].index,
+                y=observations[summary_type]["phylum"][tax],
+                name=tax,
+                text=tax,
+                hoverinfo="text+y",
+                visible=True,
+            )
+            for tax in observations[summary_type]["phylum"].columns.tolist()
+        ]
+        + [
+            go.Bar(
+                x=observations[summary_type]["class"].index,
+                y=observations[summary_type]["class"][tax],
+                name=tax,
+                text=tax,
+                hoverinfo="text+y",
+                visible=False,
+            )
+            for tax in observations[summary_type]["class"].columns.tolist()
+        ]
+        + [
+            go.Bar(
+                x=observations[summary_type]["order"].index,
+                y=observations[summary_type]["order"][tax],
+                name=tax,
+                text=tax,
+                hoverinfo="text+y",
+                visible=False,
+            )
+            for tax in observations[summary_type]["order"].columns.tolist()
+        ]
+    )
+    # the number of taxa
+    trace_length_phy = len(observations[summary_type]["phylum"].columns)
+    trace_length_cla = len(observations[summary_type]["class"].columns)
+    trace_length_ord = len(observations[summary_type]["order"].columns)
+    # plot buttons
+    updatemenus = list(
+        [
+            dict(
+                type="buttons",
+                active=0,
+                buttons=list(
+                    [
+                        dict(
+                            label="Phylum",
+                            method="update",
+                            args=[
+                                {
+                                    "visible": [True] * trace_length_phy
+                                    + [False] * trace_length_cla
+                                    + [False] * trace_length_ord
+                                },
+                                {"yaxis": {"title": labels[summary_type]}},
+                            ],
+                        ),
+                        dict(
+                            label="Class",
+                            method="update",
+                            args=[
+                                {
+                                    "visible": [False] * trace_length_phy
+                                    + [True] * trace_length_cla
+                                    + [False] * trace_length_ord
+                                },
+                                {"yaxis": {"title": labels[summary_type]}},
+                            ],
+                        ),
+                        dict(
+                            label="Order",
+                            method="update",
+                            args=[
+                                {
+                                    "visible": [False] * trace_length_phy
+                                    + [False] * trace_length_cla
+                                    + [True] * trace_length_ord
+                                },
+                                {"yaxis": {"title": labels[summary_type]}},
+                            ],
+                        ),
+                    ]
+                ),
+                direction="left",
+                pad={"r": 0, "t": 0},
+                showactive=True,
+                x=0,
+                xanchor="left",
+                y=1.2,
+                yanchor="top",
+            )
+        ]
+    )
+    # initial layout
+    layout = dict(
+        title="Assignments per Sample By {}".format(summary_type),
+        updatemenus=updatemenus,
+        barmode="stack",
+        height=700,
+        yaxis=dict(title=labels[summary_type]),
+        showlegend=False,
+        hovermode="closest",
+    )
+    fig = go.Figure(data=data, layout=layout)
+    return fig
+
+
+def get_sample(path, key):
+    return os.path.basename(path).partition(key)[0]
+>>>>>>> b017b68c22f381d6ebf496da8feb0a2770397a0e
 
 
 def parse_merge_file(path):
@@ -199,7 +330,6 @@ def build_quality_plot(r1_quality_files):
             )
     layout = go.Layout(
         title="Mean Quality Scores for R1 and R2",
-        margin={"b": "auto", "r": "auto"},
         xaxis={"title": "Position"},
         yaxis={"title": "Quality (Phred score)"},
         hovermode="closest",
