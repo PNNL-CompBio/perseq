@@ -107,6 +107,18 @@ def get_summaries():
         taxonomy=taxonomy))
     return file_paths
 
+def subsample(wildcards):
+    sample = config.get("subsample",-1)
+        # logger.error("'data' dir with FASTQs has not been set; pass --config data=/path")
+        # sys.exit(1)
+    if sample < 0:
+        return config["samples"][wildcards.sample]
+
+    else:
+        return {"R1": 'subsampled/{wildcards.sample}_R1.fastq'.format(wildcards=wildcards), "R2":'subsampled/{wildcards.sample}_R2.fastq'.format(wildcards=wildcards)}
+
+
+
 
 get_samples_from_dir(config)
 KAIJUDB = get_kaiju_db_dir(config)
@@ -120,6 +132,7 @@ rule all:
             db=config["contaminant_references"].keys()),
         get_summaries(),
         "summary.html"
+
 
 
 rule get_raw_fastq_qualities:
@@ -139,9 +152,26 @@ rule get_raw_fastq_qualities:
         """
 
 
-rule merge_sequences:
+rule sub_sample:
     input:
         unpack(lambda wildcards: config["samples"][wildcards.sample])
+    output:
+        R1 = "subsampled/{sample}_R1.fastq",
+        R2 = "subsampled/{sample}_R2.fastq"
+    params:
+        subsample = config.get("subsample",60000)
+    shell:
+        """
+          seqtk sample -s100 {input.R1} {params.subsample}> {output.R1}
+          seqtk sample -s100 {input.R2} {params.subsample}> {output.R2}
+        """
+
+rule merge_sequences:
+    input:
+        unpack(subsample)
+        #TODO build a function to decide which input to accept and also ignore if they give a negative subsampling number
+        # R1 = "subsampled/{sample}_R1.fq",
+        # R2 = "subsampled/{sample}_R2.fq"
     output:
         merged = "quality_control/{sample}_01_merged.fastq.gz",
         R1 = "quality_control/{sample}_01_unmerged_R1.fastq.gz",
@@ -442,8 +472,8 @@ rule build_functional_and_tax_table:
 rule build_krona_ec_input:
     input:
         ec_file = 'summaries/function/ec.txt',
-        ec_converter = 'ec_converter.txt',
-        ec_dat_file = 'enzyme.dat'
+        ec_converter = config["ec_converter"],
+        ec_dat_file = config["enzyme_dat_file"]
     output:
         expand("krona_plots/{sample}_ec.txt", sample=config["samples"].keys())
     threads:

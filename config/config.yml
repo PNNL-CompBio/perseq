@@ -4,6 +4,8 @@ data: tests/data
 threads: 8
 # specify a number that represents GBs of available RAM
 java_mem: 16
+#number of reads to subsample by
+subsample: 60000
 # adapter trimming occurs after successful sequence merge
 adapters: resources/adapters.fa
 contaminant_references:
@@ -25,3 +27,5 @@ ko_list: tests/refdata/ko_list.txt
 # links KEGG's species code with NCBI's
 # curl http://rest.kegg.jp/list/genome > genome_list.txt
 genome_list: tests/refdata/genome_list.txt
+enzyme_dat_file: tests/refdata/enzyme.dat
+ec_converter: tests/refdata/ec_converter.txt
