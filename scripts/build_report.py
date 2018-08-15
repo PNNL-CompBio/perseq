@@ -36,6 +36,35 @@ SCRIPT = """
     </script>
 """
 
+def shannon_index(arr):
+    """
+    >>> counter = Counter({'28DPL6Y5ZLJQ': 20.0,
+             '5JJ3I433OD4D': 3.0,
+             '66ZS8L2FIBHE': 189.0,
+             '7W0EEVTOR5VV': 1.0,
+             '8NZCUXPEUIKE': 2.0,
+             '8XTZF810ENMI': 486.0,
+             'C8PP69BX09ZZ': 4.0,
+             'CMULPOCAFROS': 2.0,
+             'E3BOBZO5MIX3': 2.0,
+             'E517B87AQ3XM': 2.0,
+             'EUDVJH6XLSY3': 3.0,
+             'F7O31BBBUDCE': 2.0,
+             'JWWBB7Y2PTQ4': 2.0,
+             'JYKOAK2U228V': 3.0,
+             'NAMWMPHCUBJC': 2.0,
+             'O5N7ADO5K9I4': 3.0,
+             'P34M5UNS6P9B': 6.0,
+             'RLU5W9AMJHFT': 123.0,
+             'RMPWYKVRSXNL': 1.0,
+             'T13Z885J5HJ4': 2.0,
+             'TUK6CZH506C1': 2.0,
+             'ZX7LUKOMKLA4': 3.0})
+    >>> shannon_index(np.array(list(counter.values())))
+    1.32095...
+    """
+    total = sum(arr)
+    return -1 * sum([(x / total) * np.log(x / total) for x in arr if x > 0])
 
 def get_sample_order(lst):
     """
@@ -62,8 +91,44 @@ def build_taxonomy_plot(txt, value_cols, height=900):
     return fig
 
 
-def get_sample(path, key):
-    return [os.path.basename(item).partition(key)[0] for item in os.listdir(path)]
+def get_sample_name(path, key):
+    return [os.path.basename(item).partition(key)[0] for item in path]
+
+def parse_classifications_for_taxonomy(path):
+    """
+    SN1035:381:h3cv7bcx2:2:2202:3165:73750	-1	-1
+    SN1035:381:h3cv7bcx2:1:1105:7280:88523	67.5	40				111	Archaea; Thaumarchaeota; Nitrososphaerales; Nitrososphaeria; Nitrososphaeraceae; Candidatus Nitrosocosmicus; Candidatus Nitrocosmicus oleophilus;
+    SN1035:381:h3cv7bcx2:1:1204:20140:83036	78.4	37	ko:K00820	glmS, GFPT; glucosamine---fructose-6-phosphate aminotransferase (isomerizing)	2.6.1.16	229	Bacteria; Actinobacteria; NA; NA; NA; NA; Actinobacteria bacterium 13_1_40CM_66_12;
+    """
+    logger.info("Parsing {}".format(path))
+    # hardcoded tax levels :(
+    taxonomy_level_counter = {
+        "order": Counter(), "class": Counter(), "phylum": Counter()
+    }
+    taxonomy_counter = Counter()
+    summary_counter = Counter()
+    with open(path) as fh:
+        # skip the header
+        next(fh)
+        for i, line in enumerate(fh, start=1):
+            toks = line.strip("\r\n").split("\t")
+            if toks[3]:
+                summary_counter.update(["Assigned Function"])
+                if toks[7]:
+                    summary_counter.update(["Assigned Both"])
+            if toks[7]:
+                taxonomy_counter.update([toks[7]])
+                taxonomy = [j.strip() for j in toks[7].split(";")]
+                taxonomy_level_counter["order"].update([taxonomy[3]])
+                taxonomy_level_counter["class"].update([taxonomy[2]])
+                taxonomy_level_counter["phylum"].update([taxonomy[1]])
+                summary_counter.update(["Assigned Taxonomy"])
+    idx = shannon_index(np.array(list(taxonomy_counter.values())))
+    return dict(
+        taxonomy_level_counter=taxonomy_level_counter,
+        summary_counter=summary_counter,
+        shannon=idx,
+        )
 
 
 def compile_summary_df(classification_tables, tax_levels=["phylum", "class", "order"]):
@@ -96,138 +161,18 @@ def compile_summary_df(classification_tables, tax_levels=["phylum", "class", "or
                 parsed_taxonomy["taxonomy_level_counter"][tax_level], sample, tax_level
             )
             dfs[tax_level] = dfs[tax_level].merge(df, on=tax_level, how="outer")
-<<<<<<< HEAD
-    return (pd.DataFrame.from_dict(classifications_per_sample, orient="index"),)
-=======
-    # most diverse to least
-    sample_order = get_sample_order(samples)
-    observations_at_levels = {"Counts": dict(), "Percentage": dict()}
-    for tax_level in tax_levels:
-        c, p = process_reads(dfs[tax_level], tax_level, sample_order)
-        observations_at_levels["Counts"][tax_level] = c
-        observations_at_levels["Percentage"][tax_level] = p
-    return (
-        observations_at_levels,
-        pd.DataFrame.from_dict(classifications_per_sample, orient="index"),
-    )
+    return pd.DataFrame.from_dict(classifications_per_sample, orient="index")
 
 
-def make_plots(observations, summary_type):
-    # data traces are taxonomies across samples
-    labels = {"Percentage": "Relative Abundance", "Counts": "Counts"}
-    # tax levels are hardcoded at this point
-    data = (
-        [
-            go.Bar(
-                x=observations[summary_type]["phylum"].index,
-                y=observations[summary_type]["phylum"][tax],
-                name=tax,
-                text=tax,
-                hoverinfo="text+y",
-                visible=True,
-            )
-            for tax in observations[summary_type]["phylum"].columns.tolist()
-        ]
-        + [
-            go.Bar(
-                x=observations[summary_type]["class"].index,
-                y=observations[summary_type]["class"][tax],
-                name=tax,
-                text=tax,
-                hoverinfo="text+y",
-                visible=False,
-            )
-            for tax in observations[summary_type]["class"].columns.tolist()
-        ]
-        + [
-            go.Bar(
-                x=observations[summary_type]["order"].index,
-                y=observations[summary_type]["order"][tax],
-                name=tax,
-                text=tax,
-                hoverinfo="text+y",
-                visible=False,
-            )
-            for tax in observations[summary_type]["order"].columns.tolist()
-        ]
-    )
-    # the number of taxa
-    trace_length_phy = len(observations[summary_type]["phylum"].columns)
-    trace_length_cla = len(observations[summary_type]["class"].columns)
-    trace_length_ord = len(observations[summary_type]["order"].columns)
-    # plot buttons
-    updatemenus = list(
-        [
-            dict(
-                type="buttons",
-                active=0,
-                buttons=list(
-                    [
-                        dict(
-                            label="Phylum",
-                            method="update",
-                            args=[
-                                {
-                                    "visible": [True] * trace_length_phy
-                                    + [False] * trace_length_cla
-                                    + [False] * trace_length_ord
-                                },
-                                {"yaxis": {"title": labels[summary_type]}},
-                            ],
-                        ),
-                        dict(
-                            label="Class",
-                            method="update",
-                            args=[
-                                {
-                                    "visible": [False] * trace_length_phy
-                                    + [True] * trace_length_cla
-                                    + [False] * trace_length_ord
-                                },
-                                {"yaxis": {"title": labels[summary_type]}},
-                            ],
-                        ),
-                        dict(
-                            label="Order",
-                            method="update",
-                            args=[
-                                {
-                                    "visible": [False] * trace_length_phy
-                                    + [False] * trace_length_cla
-                                    + [True] * trace_length_ord
-                                },
-                                {"yaxis": {"title": labels[summary_type]}},
-                            ],
-                        ),
-                    ]
-                ),
-                direction="left",
-                pad={"r": 0, "t": 0},
-                showactive=True,
-                x=0,
-                xanchor="left",
-                y=1.2,
-                yanchor="top",
-            )
-        ]
-    )
-    # initial layout
-    layout = dict(
-        title="Assignments per Sample By {}".format(summary_type),
-        updatemenus=updatemenus,
-        barmode="stack",
-        height=700,
-        yaxis=dict(title=labels[summary_type]),
-        showlegend=False,
-        hovermode="closest",
-    )
-    fig = go.Figure(data=data, layout=layout)
-    return fig
+def get_df_at_tax_level(count_obj, sample, tax_level):
+    df = pd.DataFrame(data=count_obj, index=[0]).transpose()
+    df.reset_index(inplace=True)
+    df.columns = [tax_level, sample]
+    return df
 
 
 def get_sample(path, key):
     return os.path.basename(path).partition(key)[0]
->>>>>>> b017b68c22f381d6ebf496da8feb0a2770397a0e
 
 
 def parse_merge_file(path):
@@ -380,7 +325,12 @@ def get_conda_env_str(conda_env_file):
 
 
 def main(
+    clean_logs,
+    unique_logs,
+    merge_logs,
     summary_tables,
+    r1_quality_files,
+    conda_env,
     html,
     function_table,
     taxonomy_table,
@@ -389,7 +339,7 @@ def main(
     krona_ec,
 ):
     classifications_per_sample = compile_summary_df(summary_tables)
-    value_cols = get_sample(summary_tables, "_classifications.txt")
+    value_cols = get_sample_name(summary_tables, "_classifications.txt")
     fig = build_taxonomy_plot(taxonomy_table, value_cols)
     plots = offline.plot(fig, **PLOTLY_PARAMS)
     html_tbl = parse_log_files(
@@ -453,8 +403,9 @@ Paired-end sequences were evaluated for quality using VSEARCH [1]. Sequence
 reads are quality trimmed after successful merging using bbmerge [2].
 Sequences are allowed to be extended up 300 bp
 during the merging process to account for non-overlapping R1 and R2 sequences
-(``k=60 extend2=60 iterations=5 qtrim2=t``). Merged sequences are deduplicated
-using the clumpify tool [2] then, by default, filtered of PhiX and
+(``k=60 extend2=60 iterations=5 qtrim2=t``). If optional subsampling is selected,
+Seqtk is used to downsample FASTQ files for faster processing [3]. Merged sequences are
+deduplicated using the clumpify tool [2] then, by default, filtered of PhiX and
 rRNA using bbsplit [2]. An arbitrary number of Name:FASTA pairs may be
 specified during the decontamination process. Functional annotation and
 taxonomic classification were performed following the decontamination step.
@@ -462,8 +413,8 @@ taxonomic classification were performed following the decontamination step.
 Functional Annotation
 *********************
 
-The blastx algorithm of DIAMOND [3] was used to align nucleotide sequences to
-the KEGG protein reference database [4] consisting of non-redundant, family
+The blastx algorithm of DIAMOND [4] was used to align nucleotide sequences to
+the KEGG protein reference database [5] consisting of non-redundant, family
 level fungal eukaryotes and genus level prokaryotes
 (``--strand=both --evalue 0.00001``). The highest scoring alignment per
 sequence was used for functional annotation.
@@ -472,7 +423,7 @@ Taxonomic Annotation
 ********************
 
 Kmer-based taxonomic classification was performed on the merged reads using
-Kaiju [5] in greedy mode (``-a greedy -E 0.05``). NCBI's nr database [6]
+Kaiju [6] in greedy mode (``-a greedy -E 0.05``). NCBI's nr database [7]
 containing reference sequences for archaea, bacteria, viruses, fungi, and
 microbial eukaryotes was used as the reference index for Kaiju.
 
@@ -481,10 +432,11 @@ References
 
 1. Rognes T, Flouri T, Nichols B, Quince C, Mahé F. VSEARCH: a versatile open source tool for metagenomics. PeerJ. PeerJ Inc; 2016;4:e2584.
 2. Bushnell B. BBTools [Internet]. Available from: https://sourceforge.net/projects/bbmap/
-3. Buchfink B, Xie C, Huson DH. Fast and sensitive protein alignment using DIAMOND. Nat. Methods. Nature Publishing Group; 2015;12:59–60.
-4. Kanehisa M, Sato Y, Kawashima M, Furumichi M, Tanabe M. KEGG as a reference resource for gene and protein annotation. Nucleic Acids Res. 2016;44:D457–62.
-5. Menzel P, Ng KL, Krogh A. Fast and sensitive taxonomic classification for metagenomics with Kaiju. Nat Commun. Nature Publishing Group; 2016;7:11257.
-6. NCBI Resource Coordinators. Database resources of the National Center for Biotechnology Information. Nucleic Acids Res. 2018;46:D8–D13.
+3. Li H. Seqtk [Internet]. Available from: https://github.com/lh3/seqtk
+4. Buchfink B, Xie C, Huson DH. Fast and sensitive protein alignment using DIAMOND. Nat. Methods. Nature Publishing Group; 2015;12:59–60.
+5. Kanehisa M, Sato Y, Kawashima M, Furumichi M, Tanabe M. KEGG as a reference resource for gene and protein annotation. Nucleic Acids Res. 2016;44:D457–62.
+6. Menzel P, Ng KL, Krogh A. Fast and sensitive taxonomic classification for metagenomics with Kaiju. Nat Commun. Nature Publishing Group; 2016;7:11257.
+7. NCBI Resource Coordinators. Database resources of the National Center for Biotechnology Information. Nucleic Acids Res. 2018;46:D8–D13.
 
 
 Execution Environment
@@ -595,7 +547,12 @@ Downloads
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
+    p.add_argument("--clean-logs", nargs="+")
+    p.add_argument("--unique-logs", nargs="+")
+    p.add_argument("--merge-logs", nargs="+")
     p.add_argument("--summary-tables", nargs="+")
+    p.add_argument("--r1-quality-files", nargs="+")
+    p.add_argument("conda_env")
     p.add_argument("--html")
     p.add_argument("function_table")
     p.add_argument("taxonomy_table")
@@ -604,7 +561,12 @@ if __name__ == "__main__":
     p.add_argument("krona_ec")
     args = p.parse_args()
     main(
+        args.clean_logs,
+        args.unique_logs,
+        args.merge_logs,
         args.summary_tables,
+        args.r1_quality_files,
+        args.conda_env,
         args.html,
         args.function_table,
         args.taxonomy_table,

@@ -80,11 +80,18 @@ contaminant_references:
 Hits to contaminant references are detailed in
 `quality_control/<sample>_03_<contaminant key>.fasta.gz`.
 
+
+Quicker QC stats can be achieved by subsampling the FASTQ files using `seqtk sample`. To activate, add
+"sumbsample: value" to the `config/config.yml` file where value is the number of sequences
+to subsample down to. This step occurs prior to merging, and impacts all downstream analysis.
+ If the subsample value provided is negative, then subsampling will not occur.
+
 Counts for each stage and initial sequence quality are summarized in the HTML report:
 
 ![logo](resources/summary_table.png)
 
 ![logo](resources/summary_quality.png)
+
 
 # Taxonomic Annotation
 
