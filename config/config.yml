@@ -16,7 +16,7 @@ contaminant_references:
 kaijudb: tests/refdata
 # cat ftp.bioinformatics.jp/kegg/genes/fasta/family_eukaryotes.pep.gz ftp.bioinformatics.jp/kegg/genes/fasta/genus_prokaryotes.pep.gz > temp
 # python scripts/filter_kegg_fa.py ftp.bioinformatics.jp/kegg/genes/misc/taxonomy temp > kegg_feukaryotes_gprokaryotes.faa
-diamonddb: tests/refdata/kegg_subset.faa
+diamonddb: tests/refdata/kegg_feukaryotes_gprokaryotes.faa
 # links genes (hsa:578) to KO (ko:K14021)
 # this file could also be created using their RESTful interface by looking up all KOs at http://rest.kegg.jp/link/genes/K14021; perseq's expectation is for species to be in column 1 and KO to be in column 2
 # ftp.bioinformatics.jp/kegg/genes/links/genes_ko.list.gz

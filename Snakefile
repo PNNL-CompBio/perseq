@@ -144,6 +144,7 @@ rule get_raw_fastq_qualities:
     group:
         "sample_group"
     shell:
+        # TODO seqtk fqchk
         """
         vsearch --threads 1 --fastq_eestats {input} --output {output}
         """
@@ -484,7 +485,7 @@ rule build_krona_ec_input:
         CONDAENV
     shell:
         """
-        python scripts/krona_plots.py --ec-file {input.ec_converter} \
+        python scripts/build_krona.py --ec-file {input.ec_converter} \
             --dat-file {input.ec_dat_file} --ec-file-from-summaries {input.ec_file} \
             krona_plots
         """
@@ -501,7 +502,7 @@ rule build_krona_taxonomy_input:
         CONDAENV
     shell:
         """
-        python scripts/krona_plots.py {input.tax_file} krona_plots
+        python scripts/build_krona.py --tax-file {input.tax_file} krona_plots
         """
 
 
@@ -534,7 +535,7 @@ rule build_report:
         clean_logs = expand("logs/{sample}_decontamination.log", sample=config["samples"].keys()),
         merge_logs = expand("logs/{sample}_merge_sequences.log", sample=config["samples"].keys()),
         function = "summaries/function/ko.txt",
-        taxonomy = "summaries/taxonomy/phylum.txt",
+        taxonomy = "summaries/taxonomy/order.txt",
         combined = "summaries/combined/ko_phylum.txt",
         krona_tax = "krona_plots/tax.krona.html",
         krona_ec = "krona_plots/ec.krona.html"
