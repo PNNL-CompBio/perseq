@@ -2,6 +2,7 @@ import argparse
 import csv
 import os
 from collections import Counter, defaultdict
+from glob import glob
 
 import numpy as np
 import pandas as pd
@@ -338,6 +339,7 @@ def main(
     krona_tax,
     krona_ec,
 ):
+    r1_quality_files = glob(r1_quality_files)
     classifications_per_sample = compile_summary_df(summary_tables)
     value_cols = get_sample_name(summary_tables, "_classifications.txt")
     fig = build_taxonomy_plot(taxonomy_table, value_cols)
@@ -547,11 +549,11 @@ Downloads
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
-    p.add_argument("--clean-logs", nargs="+")
-    p.add_argument("--unique-logs", nargs="+")
-    p.add_argument("--merge-logs", nargs="+")
-    p.add_argument("--summary-tables", nargs="+")
-    p.add_argument("--r1-quality-files", nargs="+")
+    p.add_argument("--clean-logs")
+    p.add_argument("--unique-logs")
+    p.add_argument("--merge-logs")
+    p.add_argument("--summary-tables")
+    p.add_argument("--r1-quality-files")
     p.add_argument("conda_env")
     p.add_argument("--html")
     p.add_argument("function_table")

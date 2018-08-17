@@ -539,6 +539,8 @@ rule build_report:
         combined = "summaries/combined/ko_phylum.txt",
         krona_tax = "krona_plots/tax.krona.html",
         krona_ec = "krona_plots/ec.krona.html"
+    params:
+        ee_stats = "'logs/*_R1_eestats.txt'"
     output:
         "summary.html"
     shell:
@@ -547,7 +549,7 @@ rule build_report:
             --unique-logs {input.unique_length_logs} \
             --clean-logs {input.clean_length_logs} \
             --summary-tables {input.classifications} \
-            --r1-quality-files {input.ee_stats} \
+            --r1-quality-files {params.ee_stats} \
             --html {output} \
             {CONDAENV} {input.function} {input.taxonomy} {input.combined} \
             {input.krona_tax} {input.krona_ec}
