@@ -2,6 +2,7 @@ import argparse
 import csv
 import os
 from collections import Counter, defaultdict
+from glob import glob
 
 import numpy as np
 import pandas as pd
@@ -239,7 +240,7 @@ def parse_log_files(merge_logs, unique_logs, clean_logs, classifications_per_sam
         table_id="summaryTable",
     )
     sample_summary_table = sample_summary_table.replace("\n", "\n" + 10 * " ")
-    return sample_summary_table
+
 
 
 def build_quality_plot(r1_quality_files):
@@ -330,14 +331,19 @@ def main(
     merge_logs,
     summary_tables,
     r1_quality_files,
-    conda_env,
     html,
+    conda_env,
     function_table,
     taxonomy_table,
     taxonomy_function_table,
     krona_tax,
     krona_ec,
 ):
+    clean_logs = glob(clean_logs)
+    unique_logs = glob(unique_logs)
+    merge_logs = glob(merge_logs)
+    summary_tables = glob(summary_tables)
+    r1_quality_files = glob(r1_quality_files)
     classifications_per_sample = compile_summary_df(summary_tables)
     value_cols = get_sample_name(summary_tables, "_classifications.txt")
     fig = build_taxonomy_plot(taxonomy_table, value_cols)
@@ -547,13 +553,13 @@ Downloads
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
-    p.add_argument("--clean-logs", nargs="+")
-    p.add_argument("--unique-logs", nargs="+")
-    p.add_argument("--merge-logs", nargs="+")
-    p.add_argument("--summary-tables", nargs="+")
-    p.add_argument("--r1-quality-files", nargs="+")
-    p.add_argument("conda_env")
+    p.add_argument("--clean-logs")
+    p.add_argument("--unique-logs")
+    p.add_argument("--merge-logs")
+    p.add_argument("--summary-tables")
+    p.add_argument("--r1-quality-files")
     p.add_argument("--html")
+    p.add_argument("conda_env")
     p.add_argument("function_table")
     p.add_argument("taxonomy_table")
     p.add_argument("taxonomy_function_table")
@@ -566,8 +572,8 @@ if __name__ == "__main__":
         args.merge_logs,
         args.summary_tables,
         args.r1_quality_files,
-        args.conda_env,
         args.html,
+        args.conda_env,
         args.function_table,
         args.taxonomy_table,
         args.taxonomy_function_table,

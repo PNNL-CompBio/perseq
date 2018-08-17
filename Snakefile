@@ -109,13 +109,17 @@ def get_summaries():
 
 
 def subsample(wildcards):
-    # FIXME what if the user puts in "No"
     sample = config.get("subsample", -1)
-    if sample < 0:
-        return config["samples"][wildcards.sample]
+    if isinstance(sample, int):
+        if sample < 0:
+            logger.info('No subsampling performed.')
+            return config["samples"][wildcards.sample]
+        else:
+            return {"R1": "subsampled/{wildcards.sample}_R1.fastq".format(wildcards=wildcards),
+                "R2":"subsampled/{wildcards.sample}_R2.fastq".format(wildcards=wildcards)}
     else:
-        return {"R1": "subsampled/{wildcards.sample}_R1.fastq".format(wildcards=wildcards),
-            "R2":"subsampled/{wildcards.sample}_R2.fastq".format(wildcards=wildcards)}
+        logger.error(f"Invalid argument provided to subsample: {sample}")
+        sys.exit(1)
 
 
 get_samples_from_dir(config)
@@ -541,13 +545,21 @@ rule build_report:
         krona_ec = "krona_plots/ec.krona.html"
     output:
         "summary.html"
+    params:
+        classifications = "tables/\*_classifcations.txt",
+        ee_stats = "logs/\*_R1_eestats.txt",
+        clean_length_logs = "logs/\*_03_clean_readlengths.txt",
+        unique_length_logs = "logs/\*_02_unique_readlengths.txt",
+        merge_logs = "logs/\*_merge_sequences.log"
+
+
     shell:
         """
-        python scripts/build_report.py --merge-logs {input.merge_logs} \
-            --unique-logs {input.unique_length_logs} \
-            --clean-logs {input.clean_length_logs} \
-            --summary-tables {input.classifications} \
-            --r1-quality-files {input.ee_stats} \
+        python scripts/build_report.py --clean-logs {params.clean_length_logs} \
+            --unique-logs {params.unique_length_logs} \
+            --merge-logs {params.merge_logs} \
+            --summary-tables {params.classifications} \
+            --r1-quality-files {params.ee_stats} \
             --html {output} \
             {CONDAENV} {input.function} {input.taxonomy} {input.combined} \
             {input.krona_tax} {input.krona_ec}
