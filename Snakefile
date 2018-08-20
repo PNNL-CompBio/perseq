@@ -546,7 +546,7 @@ rule build_report:
     output:
         "summary.html"
     params:
-        classifications = "tables/\*_classifcations.txt",
+        classifications = "tables/\*_classifications.txt",
         ee_stats = "logs/\*_R1_eestats.txt",
         clean_length_logs = "logs/\*_03_clean_readlengths.txt",
         unique_length_logs = "logs/\*_02_unique_readlengths.txt",

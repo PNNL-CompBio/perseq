@@ -228,7 +228,9 @@ def parse_log_files(merge_logs, unique_logs, clean_logs, classifications_per_sam
 
     log_df = pd.DataFrame.from_dict(count_table, orient="index")
     log_df.columns = header
+    print('classifications',classifications_per_sample.head())
     log_df = log_df.merge(classifications_per_sample, left_index=True, right_index=True)
+    print(log_df.head())
     log_df.reset_index(inplace=True)
     header.insert(0, "Sample")
     header.extend(["Assigned\nFunction", "Assigned\nTaxonomy", "Assigned\nBoth"])
@@ -345,6 +347,7 @@ def main(
     summary_tables = glob(summary_tables)
     r1_quality_files = glob(r1_quality_files)
     classifications_per_sample = compile_summary_df(summary_tables)
+    print(classifications_per_sample.head())
     value_cols = get_sample_name(summary_tables, "_classifications.txt")
     fig = build_taxonomy_plot(taxonomy_table, value_cols)
     plots = offline.plot(fig, **PLOTLY_PARAMS)
