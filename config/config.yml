@@ -23,9 +23,11 @@ diamonddb: tests/refdata/kegg_feukaryotes_gprokaryotes.faa
 gene2ko: tests/refdata/genes_ko.list.gz
 # defines KO and the KO's description
 # curl http://rest.kegg.jp/list/ko > ko_list.txt
-ko_list: tests/refdata/ko_list.txt
+ko_list: resources/ko_list.txt.gz
 # links KEGG's species code with NCBI's
-# curl http://rest.kegg.jp/list/genome > genome_list.txt
-genome_list: tests/refdata/genome_list.txt
-enzyme_dat_file: tests/refdata/enzyme.dat
-ec_converter: tests/refdata/ec_converter.txt
+# curl http://rest.kegg.jp/list/genome | gzip > genome_list.txt.gz
+genome_list: resources/genome_list.txt.gz
+# curl ftp://ftp.expasy.org/databases/enzyme/enzyme.dat | gzip > enzyme.dat.gz
+enzyme_dat_file: resources/enzyme.dat.gz
+# curl ftp://ftp.expasy.org/databases/enzyme/enzclass.txt | gzip > enzclass.txt.gz
+ec_converter: resources/enzclass.txt.gz
