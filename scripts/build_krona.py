@@ -1,8 +1,11 @@
 #!/usr/bin/env python
 import argparse
+import gzip
 from collections import defaultdict
 
 import pandas as pd
+
+gzopen = lambda f: gzip.open(f, "rt") if f.endswith(".gz") else open(f)
 
 
 def build_tax(tax_file, output):
@@ -30,24 +33,29 @@ def build_tax(tax_file, output):
         )
 
 
-def build_ec_dict(ec_file, dat_file):
+def build_ec_dict(ec_filename, dat_filename):
     """
     Parses enzyme commission numbers in their hierarchy
     """
-
-    with open(ec_file) as file, open(dat_file) as dat_file:
+    with gzopen(ec_filename) as ec_file, gzopen(dat_filename) as dat_file:
         d = defaultdict(list)
         # build hierarchy of ec numbers
-        for item in file:
-            toks = item.strip().partition(";")
-            path = toks[0].replace(" ", "").strip()
-            pieces = path.split("-")[0].split(".")[:-1]
-            desc = toks[2][:-1]
+        for line in ec_file:
+            if not line[0].isdigit():
+                continue
 
+            # all ECs are 9 characters wide and include spaces as padding
+            # and the lowest level is never defined
+            # 1. 1.99.-    With other acceptors." -> 1. 1.99.-
+            path = line[0:9].replace(" ", "")
+            # 1. 1.99.- -> ['1', ' 1', '99']
+            pieces = path.split("-")[0].split(".")[:-1]
+            # 1. 1.99.-    With other acceptors." -> With other acceptors
+            desc = line[9:].strip(" \r\n.")
+            # depends on the input always being sorted by increasing complexity
             if len(pieces) == 1:
                 d[path].append(desc)
                 first_level = desc
-
             elif len(pieces) == 2:
                 d[path].append(desc)
                 second_level = desc
@@ -60,12 +68,13 @@ def build_ec_dict(ec_file, dat_file):
         # need to grab the lowest level of ec numbers
         for line in dat_file:
             if line.startswith("ID"):
-                line = line.strip().split("  ")[1].strip()
-                desc = next(dat_file).split("  ")[1].strip()
-                first_levels = d[line.rpartition(".")[0] + ".-"]
-                for level in first_levels:
-                    d[line].append(level)
-                d[line].append(desc)
+                # line = line.strip().split("  ")[1].strip()
+                path = line.strip().partition("  ")[-1].strip()
+                # advance to the next line
+                desc_line = next(dat_file)
+                assert desc_line.startswith("DE")
+                desc = desc_line.split("  ", 2)[1].strip()
+                d[path] = [i for i in d[path.rpartition(".")[0] + ".-"]] + [desc]
     return d
 
 
@@ -74,7 +83,7 @@ def parse_ec_file(ec_file_from_summaries):
     Split sequences that aligned to multiple ec numbers into last common ec number
     shared amongst matches
     """
-    with open(ec_file_from_summaries) as ec_file_sum:
+    with gzopen(ec_file_from_summaries) as ec_file_sum:
 
         next(ec_file_sum)
         new_ec_dict = {"ec": []}
