@@ -36,6 +36,13 @@ def build_tax(tax_file, output):
 def build_ec_dict(ec_filename, dat_filename):
     """
     Parses enzyme commission numbers in their hierarchy
+
+    From the config file:
+
+    # curl ftp://ftp.expasy.org/databases/enzyme/enzyme.dat | gzip > enzyme.dat.gz
+    enzyme_dat_file: resources/enzyme.dat.gz
+    # curl ftp://ftp.expasy.org/databases/enzyme/enzclass.txt | gzip > enzclass.txt.gz
+    ec_converter: resources/enzclass.txt.gz
     """
     with gzopen(ec_filename) as ec_file, gzopen(dat_filename) as dat_file:
         d = defaultdict(list)
