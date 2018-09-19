@@ -2,12 +2,13 @@
 Generates a tab separated file of the desired functional information
 """
 import argparse
+import gzip
 import json
 import logging
 import os
 import pandas as pd
 
-
+gzopen = lambda f: gzip.open(f, "rt") if f.endswith(".gz") else open(f)
 TAX_LEVELS = {
     "superkingdom": 1,
     "kingdom": 1,
@@ -23,7 +24,7 @@ FUNCTION_COLS = ["ko", "ec", "product"]
 
 def parse_kegg_json(json_file):
     kegg_dict = dict()
-    with open(json_file) as filehandle:
+    with gzopen(json_file) as filehandle:
         json_class = json.load(filehandle)
         for root in json_class["children"]:
             for level_1 in root["children"]:
