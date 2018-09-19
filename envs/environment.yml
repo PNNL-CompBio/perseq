@@ -11,10 +11,9 @@ dependencies:
     - krona=2.7
     - numpy
     - pandas=0.23.4
-    - plotly=2.7.0
     - snakemake>=5.1.3
     - vsearch=2.6.0
-    - seqtk
+    - seqtk=1.3
     - pip
     - pip:
       - relatively
