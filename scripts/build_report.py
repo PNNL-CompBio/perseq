@@ -37,6 +37,7 @@ SCRIPT = """
     </script>
 """
 
+
 def shannon_index(arr):
     """
     >>> counter = Counter({'28DPL6Y5ZLJQ': 20.0,
@@ -67,6 +68,7 @@ def shannon_index(arr):
     total = sum(arr)
     return -1 * sum([(x / total) * np.log(x / total) for x in arr if x > 0])
 
+
 def get_sample_order(lst):
     """
     >>> lst = [["j", 2],["o", 1],["e", 3]]
@@ -95,6 +97,7 @@ def build_taxonomy_plot(txt, value_cols, height=900):
 def get_sample_name(path, key):
     return [os.path.basename(item).partition(key)[0] for item in path]
 
+
 def parse_classifications_for_taxonomy(path):
     """
     SN1035:381:h3cv7bcx2:2:2202:3165:73750	-1	-1
@@ -104,7 +107,9 @@ def parse_classifications_for_taxonomy(path):
     logger.info("Parsing {}".format(path))
     # hardcoded tax levels :(
     taxonomy_level_counter = {
-        "order": Counter(), "class": Counter(), "phylum": Counter()
+        "order": Counter(),
+        "class": Counter(),
+        "phylum": Counter(),
     }
     taxonomy_counter = Counter()
     summary_counter = Counter()
@@ -129,7 +134,7 @@ def parse_classifications_for_taxonomy(path):
         taxonomy_level_counter=taxonomy_level_counter,
         summary_counter=summary_counter,
         shannon=idx,
-        )
+    )
 
 
 def compile_summary_df(classification_tables, tax_levels=["phylum", "class", "order"]):
@@ -228,9 +233,9 @@ def parse_log_files(merge_logs, unique_logs, clean_logs, classifications_per_sam
 
     log_df = pd.DataFrame.from_dict(count_table, orient="index")
     log_df.columns = header
-    print('classifications',classifications_per_sample.head())
+    # print("classifications", classifications_per_sample.head())
     log_df = log_df.merge(classifications_per_sample, left_index=True, right_index=True)
-    print(log_df.head())
+    # print(log_df.head())
     log_df.reset_index(inplace=True)
     header.insert(0, "Sample")
     header.extend(["Assigned\nFunction", "Assigned\nTaxonomy", "Assigned\nBoth"])
@@ -241,8 +246,8 @@ def parse_log_files(merge_logs, unique_logs, clean_logs, classifications_per_sam
         classes=["table", "table-bordered"],
         table_id="summaryTable",
     )
+    # fix for restructuredtext formatting
     sample_summary_table = sample_summary_table.replace("\n", "\n" + 10 * " ")
-
 
 
 def build_quality_plot(r1_quality_files):
@@ -347,7 +352,7 @@ def main(
     summary_tables = glob(summary_tables)
     r1_quality_files = glob(r1_quality_files)
     classifications_per_sample = compile_summary_df(summary_tables)
-    print(classifications_per_sample.head())
+    # print(classifications_per_sample.head())
     value_cols = get_sample_name(summary_tables, "_classifications.txt")
     fig = build_taxonomy_plot(taxonomy_table, value_cols)
     plots = offline.plot(fig, **PLOTLY_PARAMS)
