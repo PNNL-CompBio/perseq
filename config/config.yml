@@ -21,6 +21,9 @@ diamonddb: tests/refdata/kegg_feukaryotes_gprokaryotes.faa
 # this file could also be created using their RESTful interface by looking up all KOs at http://rest.kegg.jp/link/genes/K14021; perseq's expectation is for species to be in column 1 and KO to be in column 2
 # ftp.bioinformatics.jp/kegg/genes/links/genes_ko.list.gz
 gene2ko: tests/refdata/genes_ko.list.gz
+# defines the KOs within KEGG's hierarchy
+# curl 'http://www.genome.jp/kegg-bin/download_htext?htext=ko00001&format=json' --location | gzip > kegg_hierarchy.json.gz
+ko_hierarchy: resources/kegg_hierarchy.json.gz
 # defines KO and the KO's description
 # curl http://rest.kegg.jp/list/ko > ko_list.txt
 ko_list: resources/ko_list.txt.gz
