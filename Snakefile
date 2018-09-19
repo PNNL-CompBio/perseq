@@ -127,6 +127,7 @@ KAIJUDB = get_kaiju_db_dir(config)
 CONDAENV = "envs/environment.yml"
 
 
+localrules: all
 rule all:
     input:
         expand("quality_control/{sample}_03_{db}.fasta.gz",
@@ -154,13 +155,11 @@ rule get_raw_fastq_qualities:
         """
 
 
-# TODO write this rule so that it operates on a single index
 rule subsample:
     input:
-        unpack(lambda wildcards: config["samples"][wildcards.sample])
+        lambda wildcards: config["samples"][wildcards.sample][wildcards.idx]
     output:
-        R1 = "subsampled/{sample}_R1.fastq.gz",
-        R2 = "subsampled/{sample}_R2.fastq.gz"
+        "subsampled/{sample}_{idx}.fastq.gz"
     params:
         subsample = config.get("subsample", 60000)
     threads:
@@ -171,14 +170,13 @@ rule subsample:
         "sample_group"
     shell:
         """
-          seqtk sample -s100 {input.R1} {params.subsample} | gzip > {output.R1}
-          seqtk sample -s100 {input.R2} {params.subsample} | gzip > {output.R2}
+          seqtk sample -s100 {input} {params.subsample} | gzip > {output}
         """
 
 
 rule merge_sequences:
     input:
-        unpack(subsample)
+        expand("subsampled/{{sample}}_{idx}.fastq.gz", idx=["R1", "R2"])
     output:
         merged = "quality_control/{sample}_01_merged.fastq.gz",
         R1 = "quality_control/{sample}_01_unmerged_R1.fastq.gz",
@@ -199,7 +197,7 @@ rule merge_sequences:
         bbmerge.sh threads={threads} k=60 extend2=60 iterations=5 \
             ecctadpole=t reassemble=t shave rinse prealloc=t \
             prefilter=10 -Xmx{resources.java_mem}G \
-            loose=t qtrim2=t in={input.R1} in2={input.R2} \
+            loose=t qtrim2=t in={input}[0] in2={input}[1] \
             {params.adapters} out={output.merged} \
             outu={output.R1} outu2={output.R2} 2> {output.log}
         """
@@ -389,6 +387,8 @@ rule combine_sample_output:
         "tables/{sample}_classifications.txt"
     params:
         lca_threshold = config.get("lca_threshold", 1.0)
+    conda:
+        CONDAENV
     shell:
         """
         python scripts/make_classification_table.py \
@@ -516,8 +516,6 @@ rule build_krona_plots:
         """
 
 
-# FIXME I think these need to be passed as patterns like 'logs/*_R1_eestats.txt'
-# and resolved in build_report.py using `glob()` [from glob import glob]
 rule build_report:
     input:
         classifications = expand("tables/{sample}_classifications.txt", sample=config["samples"].keys()),
@@ -531,8 +529,6 @@ rule build_report:
         combined = "summaries/combined/ko_phylum.txt",
         krona_tax = "krona_plots/tax.krona.html",
         krona_ec = "krona_plots/ec.krona.html"
-    params:
-        ee_stats = "'logs/*_R1_eestats.txt'"
     output:
         "summary.html"
     params:
@@ -541,6 +537,8 @@ rule build_report:
         clean_length_logs = "logs/\*_03_clean_readlengths.txt",
         unique_length_logs = "logs/\*_02_unique_readlengths.txt",
         merge_logs = "logs/\*_merge_sequences.log"
+    conda:
+        CONDAENV
     shell:
         """
         python scripts/build_report.py --clean-logs {params.clean_length_logs} \
