@@ -398,22 +398,10 @@ rule combine_sample_output:
         """
 
 
-rule download_kegg_hierarchy:
-    output:
-        os.path.join(os.path.dirname(config.get("diamonddb")), "kegg_hierarchy.json")
-    message:
-        "Attempting to download KEGG's hierarchy which will write to %s" % os.path.join(os.path.dirname(config.get("diamonddb")), "kegg_hierarchy.json")
-    shell:
-        """
-        curl 'http://www.genome.jp/kegg-bin/download_htext?htext=ko00001&format=json' \
-            --location --output '{output}'
-        """
-
-
 rule build_functional_table:
     input:
         tables = expand("tables/{sample}_classifications.txt", sample=config["samples"].keys()),
-        json = rules.download_kegg_hierarchy.output
+        json = config["ko_hierarchy"]
     output:
         "summaries/function/{function}.txt"
     params:
@@ -435,7 +423,7 @@ rule build_functional_table:
 rule build_tax_table:
     input:
         tables = expand("tables/{sample}_classifications.txt", sample=config["samples"].keys()),
-        json = rules.download_kegg_hierarchy.output
+        json = config["ko_hierarchy"]
     output:
         "summaries/taxonomy/{tax_classification}.txt"
     params:
@@ -457,7 +445,7 @@ rule build_tax_table:
 rule build_functional_and_tax_table:
     input:
         tables = expand("tables/{sample}_classifications.txt", sample=config["samples"].keys()),
-        json = rules.download_kegg_hierarchy.output
+        json = config["ko_hierarchy"]
     output:
         "summaries/combined/{function}_{tax_classification}.txt"
     params:
