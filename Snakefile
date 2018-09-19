@@ -541,8 +541,6 @@ rule build_report:
         clean_length_logs = "logs/\*_03_clean_readlengths.txt",
         unique_length_logs = "logs/\*_02_unique_readlengths.txt",
         merge_logs = "logs/\*_merge_sequences.log"
-
-
     shell:
         """
         python scripts/build_report.py --clean-logs {params.clean_length_logs} \
