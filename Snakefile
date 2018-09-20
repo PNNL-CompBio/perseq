@@ -110,7 +110,7 @@ def get_summaries():
 
 def get_merge_input(wildcards):
     subsample = config.get("subsample", -1)
-    if isinstance(sample, int):
+    if isinstance(subsample, int):
         if subsample < 1:
             # logger.info("No subsampling performed.")
             return config["samples"][wildcards.sample]
