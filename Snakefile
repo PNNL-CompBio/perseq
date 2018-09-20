@@ -108,17 +108,19 @@ def get_summaries():
     return file_paths
 
 
-def subsample(wildcards):
-    sample = config.get("subsample", -1)
+def get_merge_input(wildcards):
+    subsample = config.get("subsample", -1)
     if isinstance(sample, int):
-        if sample < 0:
-            logger.info('No subsampling performed.')
+        if subsample < 1:
+            # logger.info("No subsampling performed.")
             return config["samples"][wildcards.sample]
         else:
-            return {"R1": "subsampled/{wildcards.sample}_R1.fastq".format(wildcards=wildcards),
-                "R2":"subsampled/{wildcards.sample}_R2.fastq".format(wildcards=wildcards)}
+            return {
+                "R1": "subsampled/{wc.sample}_R1.fastq.gz".format(wc=wildcards),
+                "R2": "subsampled/{wc.sample}_R2.fastq.gz".format(wc=wildcards),
+            }
     else:
-        logger.error(f"Invalid argument provided to subsample: {sample}")
+        logger.error(f"Invalid argument provided to subsample: {subsample}")
         sys.exit(1)
 
 
@@ -176,14 +178,15 @@ rule subsample:
 
 rule merge_sequences:
     input:
-        expand("subsampled/{{sample}}_{idx}.fastq.gz", idx=["R1", "R2"])
+        unpack(get_merge_input)
     output:
         merged = "quality_control/{sample}_01_merged.fastq.gz",
         R1 = "quality_control/{sample}_01_unmerged_R1.fastq.gz",
         R2 = "quality_control/{sample}_01_unmerged_R2.fastq.gz",
         log = "logs/{sample}_merge_sequences.log"
     params:
-        adapters = "" if not config.get("adapters") else "adapter=%s" % config.get("adapters")
+        adapters = "" if not config.get("adapters") else "adapter=%s" % config.get("adapters"),
+
     threads:
         config.get("threads", 1)
     resources:
@@ -197,7 +200,7 @@ rule merge_sequences:
         bbmerge.sh threads={threads} k=60 extend2=60 iterations=5 \
             ecctadpole=t reassemble=t shave rinse prealloc=t \
             prefilter=10 -Xmx{resources.java_mem}G \
-            loose=t qtrim2=t in={input}[0] in2={input}[1] \
+            loose=t qtrim2=t in={input.R1} in2={input.R2} \
             {params.adapters} out={output.merged} \
             outu={output.R1} outu2={output.R2} 2> {output.log}
         """
