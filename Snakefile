@@ -113,15 +113,16 @@ def get_merge_input(wildcards):
     if isinstance(subsample, int):
         if subsample < 1:
             # logger.info("No subsampling performed.")
-            return config["samples"][wildcards.sample]
+            files = config["samples"][wildcards.sample]
         else:
-            return {
+            files = {
                 "R1": "subsampled/{wc.sample}_R1.fastq.gz".format(wc=wildcards),
                 "R2": "subsampled/{wc.sample}_R2.fastq.gz".format(wc=wildcards),
             }
     else:
         logger.error(f"Invalid argument provided to subsample: {subsample}")
         sys.exit(1)
+    return files
 
 
 get_samples_from_dir(config)
@@ -157,7 +158,7 @@ rule get_raw_fastq_qualities:
         """
 
 
-rule subsample:
+rule subsample_sequences:
     input:
         lambda wildcards: config["samples"][wildcards.sample][wildcards.idx]
     output:
@@ -172,7 +173,7 @@ rule subsample:
         "sample_group"
     shell:
         """
-          seqtk sample -s100 {input} {params.subsample} | gzip > {output}
+        seqtk sample -s100 {input} {params.subsample} | gzip > {output}
         """
 
 
@@ -185,8 +186,7 @@ rule merge_sequences:
         R2 = "quality_control/{sample}_01_unmerged_R2.fastq.gz",
         log = "logs/{sample}_merge_sequences.log"
     params:
-        adapters = "" if not config.get("adapters") else "adapter=%s" % config.get("adapters"),
-
+        adapters = "" if not config.get("adapters") else "adapter=%s" % config.get("adapters")
     threads:
         config.get("threads", 1)
     resources:
