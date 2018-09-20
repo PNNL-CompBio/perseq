@@ -51,6 +51,14 @@ snakemake --directory results \
     --use-conda --jobs 8 --configfile config/config.yml
 ```
 
+## SBATCH Example
+
+```
+snakemake --use-conda --jobs 999 --configfile config/config.yml \
+    --cluster-config config/cluster.yml \
+    --cluster "sbatch --account {cluster.account} --nodes {cluster.nodes} --time {cluster.time} --job-name {cluster.name}"
+```
+
 
 # Quality Control
 
