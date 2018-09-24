@@ -534,21 +534,16 @@ rule build_report:
         krona_ec = "krona_plots/ec.krona.html"
     output:
         "summary.html"
-    params:
-        classifications = "tables/\*_classifications.txt",
-        ee_stats = "logs/\*_R1_eestats.txt",
-        clean_length_logs = "logs/\*_03_clean_readlengths.txt",
-        unique_length_logs = "logs/\*_02_unique_readlengths.txt",
-        merge_logs = "logs/\*_merge_sequences.log"
     conda:
         CONDAENV
     shell:
         """
-        python scripts/build_report.py --clean-logs {params.clean_length_logs} \
-            --unique-logs {params.unique_length_logs} \
-            --merge-logs {params.merge_logs} \
-            --summary-tables {params.classifications} \
-            --r1-quality-files {params.ee_stats} \
+        python scripts/build_report.py \
+            --clean-logs 'logs/*_03_clean_readlengths.txt' \
+            --unique-logs 'logs/*_02_unique_readlengths.txt' \
+            --merge-logs 'logs/*_merge_sequences.log' \
+            --summary-tables 'tables/*_classifications.txt' \
+            --r1-quality-files 'logs/*_R1_eestats.txt' \
             --html {output} \
             {CONDAENV} {input.function} {input.taxonomy} {input.combined} \
             {input.krona_tax} {input.krona_ec}
