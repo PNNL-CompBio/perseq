@@ -54,10 +54,9 @@ def parse_kegg_json(json_file):
                                 "level_2": level_1["name"],
                                 "level_3": level_2["name"],
                             }
-    kegg_pd = pd.DataFrame.from_dict(kegg_dict, orient="index").reset_index()
-    kegg_pd = kegg_pd.rename(columns={"index": "ko"})
-    kegg_pd = kegg_pd[["ko", "level_1", "level_2", "level_3"]]
-    return kegg_pd
+    df = pd.DataFrame.from_dict(kegg_dict, orient="index").reset_index()
+    df = df.rename(columns={"index": "ko"})
+    return df[["ko", "level_1", "level_2", "level_3"]]
 
 
 def df_from_classifications(tbl_path, group_on, split_idx, min_perc_id, min_len):
