@@ -262,7 +262,7 @@ rule run_decontamination:
         path = os.path.join(os.path.dirname(config.get("diamonddb"))),
         prefix = lambda wc, output: "".join(output.contaminants[0].rpartition("_03_")[0:2]),
         maxindel = config.get("contaminant_max_indel", 5),
-        minratio = config.get("contaminant_min_ratio", 0.80),
+        minratio = config.get("contaminant_min_ratio", 0.95),
         minhits = config.get("contaminant_minimum_hits", 3),
         ambiguous = config.get("contaminant_ambiguous", "best"),
         k = config.get("contaminant_kmer_length", 12),
