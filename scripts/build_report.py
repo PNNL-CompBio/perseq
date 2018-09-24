@@ -4,11 +4,10 @@ import os
 from collections import Counter, defaultdict
 from glob import glob
 
-import numpy as np
 import pandas as pd
 import plotly
 import plotly.graph_objs as go
-from plotly.offline import iplot, offline
+from plotly.offline import offline
 from snakemake.utils import logger, report
 
 import relatively
@@ -38,37 +37,6 @@ SCRIPT = """
 """
 
 
-def shannon_index(arr):
-    """
-    >>> counter = Counter({'28DPL6Y5ZLJQ': 20.0,
-             '5JJ3I433OD4D': 3.0,
-             '66ZS8L2FIBHE': 189.0,
-             '7W0EEVTOR5VV': 1.0,
-             '8NZCUXPEUIKE': 2.0,
-             '8XTZF810ENMI': 486.0,
-             'C8PP69BX09ZZ': 4.0,
-             'CMULPOCAFROS': 2.0,
-             'E3BOBZO5MIX3': 2.0,
-             'E517B87AQ3XM': 2.0,
-             'EUDVJH6XLSY3': 3.0,
-             'F7O31BBBUDCE': 2.0,
-             'JWWBB7Y2PTQ4': 2.0,
-             'JYKOAK2U228V': 3.0,
-             'NAMWMPHCUBJC': 2.0,
-             'O5N7ADO5K9I4': 3.0,
-             'P34M5UNS6P9B': 6.0,
-             'RLU5W9AMJHFT': 123.0,
-             'RMPWYKVRSXNL': 1.0,
-             'T13Z885J5HJ4': 2.0,
-             'TUK6CZH506C1': 2.0,
-             'ZX7LUKOMKLA4': 3.0})
-    >>> shannon_index(np.array(list(counter.values())))
-    1.32095...
-    """
-    total = sum(arr)
-    return -1 * sum([(x / total) * np.log(x / total) for x in arr if x > 0])
-
-
 def get_sample_order(lst):
     """
     >>> lst = [["j", 2],["o", 1],["e", 3]]
@@ -86,7 +54,7 @@ def build_taxonomy_plot(txt, value_cols, height=900):
     df[value_cols] = df[value_cols].fillna(0)
     df = df[hierarchy + value_cols]
     dfs = relatively.get_dfs_across_hierarchy(
-        df, hierarchy, value_cols, reorder="shannon"
+        df, hierarchy, value_cols, reorder="shannon", dependent="; "
     )
     fig = relatively.get_abundance_figure_from_dfs(
         dfs, hierarchy, "Assigned Taxonomy Per Sample", height=height
@@ -129,11 +97,9 @@ def parse_classifications_for_taxonomy(path):
                 taxonomy_level_counter["class"].update([taxonomy[2]])
                 taxonomy_level_counter["phylum"].update([taxonomy[1]])
                 summary_counter.update(["Assigned Taxonomy"])
-    idx = shannon_index(np.array(list(taxonomy_counter.values())))
     return dict(
         taxonomy_level_counter=taxonomy_level_counter,
-        summary_counter=summary_counter,
-        shannon=idx,
+        summary_counter=summary_counter
     )
 
 
@@ -144,13 +110,11 @@ def compile_summary_df(classification_tables, tax_levels=["phylum", "class", "or
     phylum that is ready to plug into the processing function. Also returns total counts
     which is necessary to calculate the percentage of total that is being represented
     """
-    samples = []
     dfs = {}
     classifications_per_sample = {}
     for classification_table in classification_tables:
         sample = get_sample(classification_table, "_classifications.txt")
         parsed_taxonomy = parse_classifications_for_taxonomy(classification_table)
-        samples.append([sample, parsed_taxonomy["shannon"]])
         # assigned #'s in summary table
         classifications_per_sample[sample] = parsed_taxonomy["summary_counter"]
         if len(dfs) == 0:
@@ -248,6 +212,7 @@ def parse_log_files(merge_logs, unique_logs, clean_logs, classifications_per_sam
     )
     # fix for restructuredtext formatting
     sample_summary_table = sample_summary_table.replace("\n", "\n" + 10 * " ")
+    return sample_summary_table
 
 
 def build_quality_plot(r1_quality_files):
@@ -352,7 +317,6 @@ def main(
     summary_tables = glob(summary_tables)
     r1_quality_files = glob(r1_quality_files)
     classifications_per_sample = compile_summary_df(summary_tables)
-    # print(classifications_per_sample.head())
     value_cols = get_sample_name(summary_tables, "_classifications.txt")
     fig = build_taxonomy_plot(taxonomy_table, value_cols)
     plots = offline.plot(fig, **PLOTLY_PARAMS)
