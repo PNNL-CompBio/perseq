@@ -532,6 +532,8 @@ rule build_report:
         combined = "summaries/combined/ko_phylum.txt",
         krona_tax = "krona_plots/tax.krona.html",
         krona_ec = "krona_plots/ec.krona.html"
+    params:
+        ee_stats = "'logs/*_R1_eestats.txt'"
     output:
         "summary.html"
     conda:
