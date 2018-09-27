@@ -84,7 +84,7 @@ def dump_hmm_matches(hmmscan_output, hits_file):
 #     return hmmscan(source, translate, host, evalue_thr=evalue_thr, score_thr=score_thr, max_hits=max_hits, cpus=cpus, maxseqlen=maxseqlen, base_tempdir=base_tempdir)
 #     # else:
 
-def parse_hmmscan(hmmscan_output,evalue_thr=None,score_thr=60,max_hits=None):
+def parse_hmmscan(hmmscan_output,evalue_thr=None,score_thr=20,max_hits=1):
     # print('using hmmscan')
     # if not HMMSCAN:
     #     raise ValueError('hmmscan not found in path')
