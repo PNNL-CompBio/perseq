@@ -354,6 +354,62 @@ rule build_diamond_index:
         """
 
 
+rule translate_nuc_prot:
+    input:
+        "quality_control/{sample}_03_clean.fasta.gz"
+    output:
+        temp("translated/{sample}_translated.fa")
+    conda:
+        CONDAENV
+    shell:
+    """
+    call the translating function(needs to unzip the thing)
+    """
+
+
+rule hmmscan:
+    input:
+        "translated/{sample}_translated.fa"
+    output:
+        hmm_out ="hmm_scan/{sample}_hmmscan.txt",
+        log = "logs/hmmscan_out.log"
+    threads:
+        config.get("threads", 1)
+    params:
+        hmm_db = config.get("hmm_db")
+    conda:
+        CONDAENV
+    shell:
+    """
+    hmmscan --cpu {threads} -o  {output.log} --domtblout {output.hmm_out} {params.hmm_db} {input}
+    """
+
+
+rule parse_hmm_out:
+    input:
+        "hmm_scan/{sample}_hmmscan.txt"
+    output:
+        #output file that has the parsed hmm hits that have been refined
+    ##TODO this needs to do the phmmer stuff and generate a temp(?) file
+
+# rule get_best_hit:
+#     input:
+#     output:
+#         phmmer_out =temp(output),
+#         log =
+#     shell:
+#     """
+#     phmmer --incE 0.001 -E 0.001 -o {output.log} --noali --tblout {output.phmmer_out}
+#     """
+rule annotate_hits:
+    input:
+        # file that comes from the parsed hmm out rule
+    output:
+        # the final annotated hits files
+
+
+
+
 rule run_functional_classification:
     input:
         fq = "quality_control/{sample}_03_clean.fasta.gz",
