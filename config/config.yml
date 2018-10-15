@@ -34,3 +34,6 @@ genome_list: resources/genome_list.txt.gz
 enzyme_dat_file: resources/enzyme.dat.gz
 # curl ftp://ftp.expasy.org/databases/enzyme/enzclass.txt | gzip > enzclass.txt.gz
 ec_converter: resources/enzclass.txt.gz
+# this way maybe we can give the option to change the db? make sure to press the db first
+# hmmpress HAMMAP.hmm
+hmm_db: hmm_files/HAMMAP.hmm

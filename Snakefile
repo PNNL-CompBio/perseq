@@ -27,6 +27,37 @@ def get_kaiju_db_dir(config):
         sys.exit(1)
     return db_dir
 
+def readfx(fp): # this is a generator function
+    last = None # this is a buffer keeping the last unprocessed line
+    while True: # mimic closure; is it a bad idea?
+        if not last: # the first record or a record following a fastq
+            for l in fp: # search for the start of the next record
+                if l[0] in '>@': # fasta/q header line
+                    last = l[:-1] # save this line
+                    break
+        if not last: break
+        name, seqs, last = last[1:].partition(" ")[0], [], None
+        for l in fp: # read the sequence
+            if l[0] in '@+>':
+                last = l[:-1]
+                break
+            seqs.append(l[:-1])
+        if not last or last[0] != '+': # this is a fasta record
+            yield name, ''.join(seqs), None # yield a fasta record
+            if not last: break
+        else: # this is a fastq record
+            seq, leng, seqs = ''.join(seqs), 0, []
+            for l in fp: # read the quality
+                seqs.append(l[:-1])
+                leng += len(l) - 1
+                if leng >= len(seq): # have read enough quality
+                    last = None
+                    yield name, seq, ''.join(seqs); # yield a fastq record
+                    break
+            if last: # reach EOF before reading enough quality
+                yield name, seq, None # yield a fasta record instead
+                break
+
 
 def get_samples_from_dir(config):
     # groups = {key: set(value) for key, value in groupby(sorted(mylist, key = lambda e: os.path.splitext(e)[0]), key = lambda e: os.path.splitext(e)[0])}
@@ -137,7 +168,10 @@ rule all:
             sample=config["samples"].keys(),
             db=config["contaminant_references"].keys()),
         get_summaries(),
-        dynamic("fasta_chunks/{sample}_{chunk}.txt"),
+        expand("translated/{sample}_kaiju.txt",sample=config["samples"].keys()),
+        # dynamic("fasta_chunks/{sample}_03_clean_{chunk}.fasta"),
+        # expand("full_hmmscan/{sample}_hmmscan.txt",sample=config["samples"].keys()),
+        expand("full_hmmscan/{sample}_hmmscan.txt",sample=config["samples"].keys()),
         "summary.html"
 
 
@@ -340,6 +374,22 @@ rule add_full_taxonomy:
         """
 
 
+rule parse_kaiju_for_prot:
+    input:
+        "kaiju/{sample}_aln_names.txt"
+    output:
+        "translated/{sample}_kaiju.txt"
+    run:
+        with open(input,"r") as file, open(output, "w") as out:
+            for line in file:
+                if line.startswith('C'):
+                    toks = line.split('\t')
+                    seq=toks[1]
+                    translation=toks[6].strip(',').rpartition(',')[-1]
+                    print('>'+seq,file=out)
+                    print(translation,file=out)
+
+
 rule build_diamond_index:
     input:
         config["diamonddb"]
@@ -357,92 +407,107 @@ rule build_diamond_index:
 
 rule split_fasta:
     input:
-        "quality_control/{sample}_03_clean.fasta.gz"
+        #"quality_control/{sample}_03_clean.fasta.gz"
+        "translated/{sample}_kaiju.txt"
     output:
-        dynamic("fasta_chunks/{sample}_03_clean_{chunk}.fasta")
+        #dynamic("fasta_chunks/{sample}_03_clean_{chunk}.fasta")
+        dynamic("fasta_chunk/{sample}_kaiju_{chunk}.fasta")
     # conda:
     #     CONDAENV
     params:
-        config.get("chunk_size",1048576)
+        # 20 MB chunks
+        chunk_size=config.get("chunk_size",1048576),
+        sample='{sample}'
     run:
 
-        with open({input}, 'r') as file:
+        with open(input, 'r') as file:
+            n=0
             #file_out = "sample_03_clean_{INDEX}.fasta"
             while True:
-                file_out={output}
+                #file_out={params.sample}
                 # continue to write to one file
-                with open(file_out, 'w') as out:
+                #with open("fasta_chunks/"+{params.sample}+"_03_clean_"+str(n)+".fasta", 'w') as out:
+                with open("fasta_chunks/"+{params.sample}+"_kaiju"+str(n)+".fasta", 'w') as out:
                     current_bytes = 0
                     for_loop = False
                     for x, (name, seq, other) in enumerate(readfx(file)):
-                        if current_bytes > file_size:
+                        if current_bytes > {params.chunk_size}:
                             for_loop = True
+                            n+=1
                             break
                         current_bytes += len(name) + len(seq)
                         out.write(">" + name + '\n')
                         out.write(seq + '\n')
                     if not for_loop:
                         break
-
-
-rule translate_nuc_prot:
+#
+#
+# rule translate_nuc_prot:
+#     input:
+#         #dynamic(expand("fasta_chunks/{sample}_03_clean_{{chunk}}.fasta", sample=config["samples"].keys()))
+#         "fasta_chunks/{sample}_03_clean_{chunk}.fasta"
+#     output:
+#         tranlated = temp("translated/{sample}_03_clean_{chunk}.faa"),
+#         log = "logs/{sample}_prodigal_{chunk}.log"
+#     conda:
+#         CONDAENV
+#     shell:
+#         """
+#         prodigal -i {input} -o {output.log} -a {output.translated} -q
+#         """
+#
+#
+rule hmmscan:
     input:
-        "fasta_chunks/{sample}_03_clean_{chunk}.fasta"
+        #"translated/{sample}_03_clean_{chunk}.faa"
+        "fasta_chunk/{sample}_kaiju_{chunk}.fasta"
     output:
-        temp("translated/{sample}_03_clean_{chunk}.faa")
+        hmm_out =temp("hmm_scan/{sample}_hmmscan_{chunk}.txt"),
+        log = "logs/{sample}_hmmscan_{chunk}_out.log"
+    threads:
+        config.get("threads", 1)
+    params:
+        hmm_db = config.get("hmm_db"),
+        evalue = config.get("evalue",10)
     conda:
         CONDAENV
     shell:
         """
-        prodigal -i {input} -o coords.gbk -a {output} -q
+        hmmscan --noali --notextw -o {output.log} --acc -E {params.evalue} --cpu {threads} --domtblout {output.hmm_out}
         """
-
-
-# rule hmmscan:
+#
+rule merge_chunks:
+    input:
+        dynamic(expand("hmm_scan/{sample}_hmmscan_{{chunk}}.txt",sample=config["samples"].keys()))
+    output:
+        "full_hmmscan/{sample}_hmmscan.txt"
+    shell:
+        "cat {input} > {output}"
+#
+#
+# rule parse_hmmscan_output:
 #     input:
-#         "translated/{sample}_translated.fa"
+#         "full_hmmscan/{sample}_hmmscan.txt"
 #     output:
-#         hmm_out ="hmm_scan/{sample}_hmmscan.txt",
-#         log = "logs/hmmscan_out.log"
-#     threads:
-#         config.get("threads", 1)
-#     params:
-#         hmm_db = config.get("hmm_db")
-#     conda:
-#         CONDAENV
-#     shell:
-#     """
-#     hmmscan --cpu {threads} -o  {output.log} --domtblout {output.hmm_out} {params.hmm_db} {input}
-#     """
-
-
-# rule parse_hmm_out:
-#     input:
-#         "hmm_scan/{sample}_hmmscan.txt"
-#     output:
-#         #output file that has the parsed hmm hits that have been refined
-#     ##TODO this needs to do the phmmer stuff and generate a temp(?) file
-
-# rule get_best_hit:
-#     input:
-#     output:
-#         phmmer_out =temp(output),
-#         log =
-#     shell:
-#     """
-#     phmmer --incE 0.001 -E 0.001 -o {output.log} --noali --tblout {output.phmmer_out}
-#     """
-# rule annotate_hits:
-#     input:
-#         # file that comes from the parsed hmm out rule
-#     output:
-#         # the final annotated hits files
-
-
-    # input:
-    #     dynamic("fasta_chunks/{sample}_03_clean_{chunk}.fasta")
-    # output:
-    #     not dynamic
+#         "hmm/{sample}_hmmscan.txt"
+#     run:
+#         with open(input,"r") as file, open(output,"w") as out:
+#             print("seq_name","evalue","ec","gene","desc",sep='\t',file=out)
+#             for line in file:
+#                 if line.startswith('#'):
+#                     continue
+#                 toks= line.strip().split()
+#                 seq_name=toks[3]
+#                 try:
+#                     evalue = toks[6]
+#                 except:
+#                     print(toks)
+#                     break
+#                 info = toks[22].split('~~~')
+#                 ec = info[0]
+#                 gene = info[1]
+#                 desc = info[2]
+#                 print(seq_name,evalue,ec,gene,desc,sep='\t',file=out)
 
 
 rule run_functional_classification:
