@@ -222,9 +222,9 @@ rule merge_sequences:
     input:
         unpack(get_merge_input)
     output:
-        merged = "quality_control/{sample}_01_merged.fastq.gz",
-        R1 = "quality_control/{sample}_01_unmerged_R1.fastq.gz",
-        R2 = "quality_control/{sample}_01_unmerged_R2.fastq.gz",
+        merged = temp("quality_control/{sample}_01_merged.fastq.gz"),
+        R1 = temp("quality_control/{sample}_01_unmerged_R1.fastq.gz"),
+        R2 = temp("quality_control/{sample}_01_unmerged_R2.fastq.gz"),
         log = "logs/{sample}_merge_sequences.log"
     params:
         adapters = "" if not config.get("adapters") else "adapter=%s" % config.get("adapters")
@@ -251,7 +251,7 @@ rule deduplicate_reads:
     input:
         "quality_control/{sample}_01_merged.fastq.gz"
     output:
-        fa = "quality_control/{sample}_02_unique.fasta.gz",
+        fa = temp("quality_control/{sample}_02_unique.fasta.gz"),
         log = "logs/{sample}_unique_reads.log"
     threads:
         config.get("threads", 1)
@@ -380,20 +380,23 @@ rule add_full_taxonomy:
         """
 
 
+localrules: parse_kaiju_for_prot
 rule parse_kaiju_for_prot:
     input:
         "kaiju/{sample}_aln_names.txt"
     output:
-        "translated/{sample}_kaiju.txt"
+        "kaiju/{sample}.faa"
     run:
-        with open(input,"r") as file, open(output, "w") as out:
-            for line in file:
-                if line.startswith('C'):
-                    toks = line.split('\t')
-                    seq=toks[1]
-                    translation=toks[6].strip(',').rpartition(',')[-1]
-                    print('>'+seq,file=out)
-                    print(translation,file=out)
+        with open(input, "r") as in_file, open(output, "w") as out_file:
+            for line in in_file:
+                if line.startswith("C"):
+                    toks = line.split("\t")
+                    name = toks[1]
+                    # multiple sequences, same ID, best hit is chosen later
+                    for seq in toks[6].split(sep=","):
+                        if seq:
+                            print(">%s" % name, file=out_file)
+                            print(seq, file=out_file)
 
 
 rule build_diamond_index:
