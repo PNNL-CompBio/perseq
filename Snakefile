@@ -399,74 +399,45 @@ rule parse_kaiju_for_prot:
                             print(seq, file=out_file)
 
 
-rule build_diamond_index:
-    input:
-        config["diamonddb"]
-    output:
-        config["diamonddb"] + ".dmnd"
-    threads:
-        config.get("threads", 1)
-    conda:
-        CONDAENV
-    shell:
-        """
-        diamond makedb --in {input} --threads {threads} --db {output}
-        """
-
-
-rule split_fasta:
-    input:
-        #"quality_control/{sample}_03_clean.fasta.gz"
-        "translated/{sample}_kaiju.txt"
-    output:
-        #dynamic("fasta_chunks/{sample}_03_clean_{chunk}.fasta")
-        dynamic("fasta_chunk/{sample}_kaiju_{chunk}.fasta")
-    # conda:
-    #     CONDAENV
-    params:
-        # 20 MB chunks
-        chunk_size=config.get("chunk_size",1048576),
-        sample='{sample}'
-    run:
-
-        with open(input, 'r') as file:
-            n=0
-            #file_out = "sample_03_clean_{INDEX}.fasta"
-            while True:
-                #file_out={params.sample}
-                # continue to write to one file
-                #with open("fasta_chunks/"+{params.sample}+"_03_clean_"+str(n)+".fasta", 'w') as out:
-                with open("fasta_chunks/"+{params.sample}+"_kaiju"+str(n)+".fasta", 'w') as out:
-                    current_bytes = 0
-                    for_loop = False
-                    for x, (name, seq, other) in enumerate(readfx(file)):
-                        if current_bytes > {params.chunk_size}:
-                            for_loop = True
-                            n+=1
-                            break
-                        current_bytes += len(name) + len(seq)
-                        out.write(">" + name + '\n')
-                        out.write(seq + '\n')
-                    if not for_loop:
-                        break
-#
-#
-# rule translate_nuc_prot:
+# Will revisit this in a bit...
+# rule split_fasta:
 #     input:
-#         #dynamic(expand("fasta_chunks/{sample}_03_clean_{{chunk}}.fasta", sample=config["samples"].keys()))
-#         "fasta_chunks/{sample}_03_clean_{chunk}.fasta"
+#         #"quality_control/{sample}_03_clean.fasta.gz"
+#         "translated/{sample}_kaiju.txt"
 #     output:
-#         tranlated = temp("translated/{sample}_03_clean_{chunk}.faa"),
-#         log = "logs/{sample}_prodigal_{chunk}.log"
-#     conda:
-#         CONDAENV
-#     shell:
-#         """
-#         prodigal -i {input} -o {output.log} -a {output.translated} -q
-#         """
+#         #dynamic("fasta_chunks/{sample}_03_clean_{chunk}.fasta")
+#         dynamic("fasta_chunk/{sample}_kaiju_{chunk}.fasta")
+#     # conda:
+#     #     CONDAENV
+#     params:
+#         # 20 MB chunks
+#         chunk_size=config.get("chunk_size",1048576),
+#         sample='{sample}'
+#     run:
 #
-#
-rule hmmscan:
+#         with open(input, 'r') as file:
+#             n=0
+#             #file_out = "sample_03_clean_{INDEX}.fasta"
+#             while True:
+#                 #file_out={params.sample}
+#                 # continue to write to one file
+#                 #with open("fasta_chunks/"+{params.sample}+"_03_clean_"+str(n)+".fasta", 'w') as out:
+#                 with open("fasta_chunks/"+{params.sample}+"_kaiju"+str(n)+".fasta", 'w') as out:
+#                     current_bytes = 0
+#                     for_loop = False
+#                     for x, (name, seq, other) in enumerate(readfx(file)):
+#                         if current_bytes > {params.chunk_size}:
+#                             for_loop = True
+#                             n+=1
+#                             break
+#                         current_bytes += len(name) + len(seq)
+#                         out.write(">" + name + '\n')
+#                         out.write(seq + '\n')
+#                     if not for_loop:
+#                         break
+
+
+rule hmm_searches:
     input:
         #"translated/{sample}_03_clean_{chunk}.faa"
         "fasta_chunk/{sample}_kaiju_{chunk}.fasta"
