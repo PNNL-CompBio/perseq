@@ -4,7 +4,7 @@ data: tests/data
 threads: 8
 # specify a number that represents GBs of available RAM
 java_mem: 16
-#number of reads to subsample by
+# number of reads to subsample by; 0 to disable
 subsample: 60000
 # adapter trimming occurs after successful sequence merge
 adapters: resources/adapters.fa
