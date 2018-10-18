@@ -290,12 +290,12 @@ rule deduplicate_reads:
 
 rule build_decontamination_db:
     output:
-        os.path.join(os.path.dirname(config.get("diamonddb")),
+        os.path.join(os.path.dirname(config["hamap_hmm"]),
             "ref", "genome", "1", "summary.txt")
     params:
         k = config.get("contaminant_kmer_length", 13),
         refs_in = " ".join(["ref_%s=%s" % (n, fa) for n, fa in config["contaminant_references"].items()]),
-        path = os.path.dirname(config.get("diamonddb"))
+        path = os.path.dirname(config["hamap_hmm"])
     resources:
         java_mem = config.get("java_mem", 60)
     threads:
