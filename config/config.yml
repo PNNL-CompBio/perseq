@@ -20,4 +20,5 @@ enzyme_dat_file: resources/enzyme.dat.gz
 ec_converter: resources/enzclass.txt.gz
 # process documented in resources/build_hmms.ipynb
 hamap_hmm: resources/HAMAP-ACC.hmm
+tigrfams_hmm: resources/TIGRFAMs_15_0_ACC.hmm
 dbcan_hmm: resources/dbCAN-HMMdb-V7-ACC.hmm
