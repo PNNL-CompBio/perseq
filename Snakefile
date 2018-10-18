@@ -465,7 +465,7 @@ rule index_hmm_libraries:
     output:
         expand(
             "{hmm}.{exts}",
-            hmm=[config[i] for i in "hamap_hmm", "tigrfams_hmm", "dbcan_hmm"],
+            hmm=[config[i] for i in ["hamap_hmm", "tigrfams_hmm", "dbcan_hmm"]],
             exts=["h3f", "h3i", "h3m", "h3p"]
         )
     conda:
@@ -481,8 +481,8 @@ rule index_hmm_libraries:
 rule run_hmmsearch:
     # output is sorted by the target HMM library
     input:
-        faa = "kaiju/{sample}.faa",
-        unpack(get_hmm)
+        unpack(get_hmm),
+        faa = "kaiju/{sample}.faa"
     output:
         hits = temp("hmmsearch/{sample}_{hmm}.txt")
     params:
