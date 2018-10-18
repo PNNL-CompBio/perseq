@@ -557,22 +557,15 @@ rule combine_sample_output:
         # row[4].split("~~~") -> ec, enzyme class, enzyme class subfamily, HMM ID
         dbcan = "hmmsearch/{sample}_dbCAN_sorted.tsv",
         # row[4].split("~~~") -> ec, gene, product.replace("^", " "), HMM ID
-        tigrfams = "hmmsearch/{sample}_TIGRFAMs_sorted.tsv",
-        code2id = config["genome_list"],
-        names = os.path.join(config["kaijudb"], "names.dmp"),
-        nodes = os.path.join(config["kaijudb"], "nodes.dmp")
+        tigrfams = "hmmsearch/{sample}_TIGRFAMs_sorted.tsv"
     output:
         "tables/{sample}_classifications.txt"
-    params:
-        lca_threshold = config.get("lca_threshold", 1.0)
     conda:
         CONDAENV
     shell:
         """
-        python scripts/make_classification_table.py \
-            --lca-threshold {params.lca_threshold} {input.kaiju} \
-            {input.hamap} {input.dbcan} {input.gene2ko} {input.code2id} \
-            {input.kolist} {input.names} {input.nodes} {output}
+        python scripts/make_classification_table.py {input.kaiju} \
+            {input.hamap} {input.dbcan} {input.tigrfams} {output}
         """
 
 
