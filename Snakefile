@@ -574,9 +574,9 @@ rule combine_sample_output:
     shell:
         """
         python scripts/make_classification_table.py \
-            --lca-threshold {params.lca_threshold} {input.kaiju} {input.blastx} \
-            {input.gene2ko} {input.code2id} {input.kolist} {input.names} \
-            {input.nodes} {output}
+            --lca-threshold {params.lca_threshold} {input.kaiju} \
+            {input.hamap} {input.dbcan} {input.gene2ko} {input.code2id} \
+            {input.kolist} {input.names} {input.nodes} {output}
         """
 
 
