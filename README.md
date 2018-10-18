@@ -29,6 +29,19 @@ git clone https://github.com/PNNL-CompBio/perseq
 cd perseq
 ```
 
+Download the HMM reference libraries from Zenodo:
+
+> https://zenodo.org/record/1466062
+
+Locally, you should have the files:
+
+```
+dbCAN-HMMdb-V7-ACC.hmm
+HAMAP-ACC.hmm
+TIGRFAMs_15_0_ACC.hmm
+```
+
+Their full paths will be specified in the configuration file.
 
 # Usage
 
