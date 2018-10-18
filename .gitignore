@@ -1,3 +1,5 @@
+*.hmm*
+
 # Running tests
 tests/
 .snakemake/
