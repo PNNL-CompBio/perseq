@@ -133,7 +133,7 @@ def get_samples_from_dir(config):
 
 
 def get_summaries():
-    function = ["ec", "ko", "product"]
+    function = ["ec", "product"]
     taxonomy = ["phylum", "class", "order"]
     # code to generate the possible files
     file_paths = expand("summaries/combined/{function}_{taxonomy}.txt",
@@ -167,6 +167,8 @@ def get_hmm(wildcards):
         hmm = config["hamap_hmm"]
     elif wildcards.hmm == "dbCAN":
         hmm = config["dbcan_hmm"]
+    elif wildcards.hmm == "TIGRFAMs":
+        hmm = config["tigrfams_hmm"]
     else:
         logger.error("Unsure which HMM is currently selected.")
         sys.exit(status=1)
@@ -455,30 +457,24 @@ rule parse_kaiju_for_prot:
 #                         break
 
 
-# Would be nice if this was a generic rule
-rule index_hamap_library:
+rule index_hmm_libraries:
     input:
-        config["hamap_hmm"]
+        hamap = config["hamap_hmm"],
+        tigrfams = config["tigrfams_hmm"],
+        dbcan = config["dbcan_hmm"]
     output:
-        expand("{hmm}.{exts}", hmm=config["hamap_hmm"], exts=["h3f", "h3i", "h3m", "h3p"])
+        expand(
+            "{hmm}.{exts}",
+            hmm=[config[i] for i in "hamap_hmm", "tigrfams_hmm", "dbcan_hmm"],
+            exts=["h3f", "h3i", "h3m", "h3p"]
+        )
     conda:
         CONDAENV
     shell:
         """
-        hmmpress -f {input}
-        """
-
-
-rule index_dbcan_library:
-    input:
-        config["dbcan_hmm"]
-    output:
-        expand("{hmm}.{exts}", hmm=config["dbcan_hmm"], exts=["h3f", "h3i", "h3m", "h3p"])
-    conda:
-        CONDAENV
-    shell:
-        """
-        hmmpress -f {input}
+        hmmpress -f {input.hamap}
+        hmmpress -f {input.tigrfams}
+        hmmpress -f {input.dbcan}
         """
 
 
@@ -560,8 +556,8 @@ rule combine_sample_output:
         hamap = "hmmsearch/{sample}_HAMAP_sorted.tsv",
         # row[4].split("~~~") -> ec, enzyme class, enzyme class subfamily, HMM ID
         dbcan = "hmmsearch/{sample}_dbCAN_sorted.tsv",
-        gene2ko = config["gene2ko"],
-        kolist = config["ko_list"],
+        # row[4].split("~~~") -> ec, gene, product.replace("^", " "), HMM ID
+        tigrfams = "hmmsearch/{sample}_TIGRFAMs_sorted.tsv",
         code2id = config["genome_list"],
         names = os.path.join(config["kaijudb"], "names.dmp"),
         nodes = os.path.join(config["kaijudb"], "nodes.dmp")
@@ -582,8 +578,7 @@ rule combine_sample_output:
 
 rule build_functional_table:
     input:
-        tables = expand("tables/{sample}_classifications.txt", sample=config["samples"].keys()),
-        json = config["ko_hierarchy"]
+        tables = expand("tables/{sample}_classifications.txt", sample=config["samples"].keys())
     output:
         "summaries/function/{function}.txt"
     params:
@@ -604,8 +599,7 @@ rule build_functional_table:
 
 rule build_tax_table:
     input:
-        tables = expand("tables/{sample}_classifications.txt", sample=config["samples"].keys()),
-        json = config["ko_hierarchy"]
+        tables = expand("tables/{sample}_classifications.txt", sample=config["samples"].keys())
     output:
         "summaries/taxonomy/{tax_classification}.txt"
     params:
@@ -626,8 +620,7 @@ rule build_tax_table:
 
 rule build_functional_and_tax_table:
     input:
-        tables = expand("tables/{sample}_classifications.txt", sample=config["samples"].keys()),
-        json = config["ko_hierarchy"]
+        tables = expand("tables/{sample}_classifications.txt", sample=config["samples"].keys())
     output:
         "summaries/combined/{function}_{tax_classification}.txt"
     params:
