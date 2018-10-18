@@ -6,7 +6,7 @@ dependencies:
     - python=3.6
     - bbmap=37.99
     - click=6.7
-    - diamond=0.9.21
+    - hmmer=3.2.1
     - kaiju=1.6.2
     - krona=2.7
     - numpy
@@ -14,7 +14,6 @@ dependencies:
     - snakemake>=5.1.3
     - vsearch=2.6.0
     - seqtk=1.3
-    - prodigal
     - pip
     - pip:
       - relatively
