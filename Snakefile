@@ -162,6 +162,23 @@ def get_merge_input(wildcards):
     return files
 
 
+def get_hmm(wildcards):
+    if wildcards.hmm == "HAMAP":
+        hmm = config["hamap_hmm"]
+    elif wildcards.hmm == "dbCAN":
+        hmm = config["dbcan_hmm"]
+    else:
+        logger.error("Unsure which HMM is currently selected.")
+        sys.exit(status=1)
+    return dict(
+                hmm=hmm,
+                h3f="%s.h3f" % hmm,
+                h3i="%s.h3i" % hmm,
+                h3m="%s.h3m" % hmm,
+                h3p="%s.h3p" % hmm
+    )
+
+
 get_samples_from_dir(config)
 KAIJUDB = get_kaiju_db_dir(config)
 CONDAENV = "envs/environment.yml"
@@ -174,10 +191,11 @@ rule all:
             sample=config["samples"].keys(),
             db=config["contaminant_references"].keys()),
         get_summaries(),
-        expand("translated/{sample}_kaiju.txt",sample=config["samples"].keys()),
+        # expand("translated/{sample}_kaiju.txt",sample=config["samples"].keys()),
         # dynamic("fasta_chunks/{sample}_03_clean_{chunk}.fasta"),
         # expand("full_hmmscan/{sample}_hmmscan.txt",sample=config["samples"].keys()),
-        expand("full_hmmscan/{sample}_hmmscan.txt",sample=config["samples"].keys()),
+        # expand("full_hmmscan/{sample}_hmmscan.txt",sample=config["samples"].keys()),
+
         "summary.html"
 
 
@@ -437,34 +455,79 @@ rule parse_kaiju_for_prot:
 #                         break
 
 
-rule hmm_searches:
+# Would be nice if this was a generic rule
+rule index_hamap_library:
     input:
-        #"translated/{sample}_03_clean_{chunk}.faa"
-        "fasta_chunk/{sample}_kaiju_{chunk}.fasta"
+        config["hamap_hmm"]
     output:
-        hmm_out =temp("hmm_scan/{sample}_hmmscan_{chunk}.txt"),
-        log = "logs/{sample}_hmmscan_{chunk}_out.log"
-    threads:
-        config.get("threads", 1)
-    params:
-        hmm_db = config.get("hmm_db"),
-        evalue = config.get("evalue",10)
+        expand("{hmm}.{exts}", hmm=config["hamap_hmm"], exts=["h3f", "h3i", "h3m", "h3p"])
     conda:
         CONDAENV
     shell:
         """
-        hmmscan --noali --notextw -o {output.log} --acc -E {params.evalue} --cpu {threads} --domtblout {output.hmm_out}
+        hmmpress -f {input}
         """
-#
-rule merge_chunks:
+
+
+rule index_dbcan_library:
     input:
-        dynamic(expand("hmm_scan/{sample}_hmmscan_{{chunk}}.txt",sample=config["samples"].keys()))
+        config["dbcan_hmm"]
     output:
-        "full_hmmscan/{sample}_hmmscan.txt"
+        expand("{hmm}.{exts}", hmm=config["dbcan_hmm"], exts=["h3f", "h3i", "h3m", "h3p"])
+    conda:
+        CONDAENV
     shell:
-        "cat {input} > {output}"
-#
-#
+        """
+        hmmpress -f {input}
+        """
+
+
+rule run_hmmsearch:
+    # output is sorted by the target HMM library
+    input:
+        faa = "kaiju/{sample}.faa",
+        unpack(get_hmm)
+    output:
+        hits = temp("hmmsearch/{sample}_{hmm}.txt")
+    params:
+        evalue = config.get("evalue", 0.05),
+        null = os.devnull
+    conda:
+        CONDAENV
+    threads:
+        config.get("threads", 1)
+    shell:
+        """
+        hmmsearch --noali --notextw --acc --cpu {threads} -E {params.evalue} \
+            --domtblout {output.hits} -o {params.null} {input.hmm} {input.faa}
+        """
+
+
+rule sort_hmm_hits:
+    # Remove the header, remove spacing, replace spaces with tabs, sort by
+    # query then score. Best hit will be first of group.
+    input:
+        hits = temp("hmmsearch/{sample}_{hmm}.txt")
+    output:
+        # column[4] contains annotation data
+        hits = temp("hmmsearch/{sample}_{hmm}_sorted.tsv")
+    conda:
+        CONDAENV
+    shell:
+        """
+        grep -v '^#' {input.hits} | tr -s ' ' | tr ' ' '\t' | sort -k1,1 -k8,8nr > {output.hits}
+        """
+
+
+# rule merge_chunks:
+#     input:
+#         dynamic(expand("hmm_scan/{sample}_hmmscan_{{chunk}}.txt",sample=config["samples"].keys()))
+#     output:
+#         "full_hmmscan/{sample}_hmmscan.txt"
+#     shell:
+#         "cat {input} > {output}"
+
+
 # rule parse_hmmscan_output:
 #     input:
 #         "full_hmmscan/{sample}_hmmscan.txt"
@@ -490,33 +553,13 @@ rule merge_chunks:
 #                 print(seq_name,evalue,ec,gene,desc,sep='\t',file=out)
 
 
-rule run_functional_classification:
-    input:
-        fq = "quality_control/{sample}_03_clean.fasta.gz",
-        db = config["diamonddb"] + ".dmnd"
-    output:
-        "diamond/{sample}_aln.txt"
-    params:
-        evalue = config.get("evalue", 0.00001)
-    threads:
-        config.get("threads", 1)
-    conda:
-        CONDAENV
-    group:
-        "sample_group"
-    shell:
-        """
-        diamond blastx --threads {threads} --db {input.db} \
-            --evalue {params.evalue} --out {output} --outfmt 6 \
-            --query {input.fq} --strand both --unal 1 --top 3 \
-            --block-size 4 --index-chunks 1
-        """
-
-
 rule combine_sample_output:
     input:
         kaiju = "kaiju/{sample}_aln_names.txt",
-        blastx = "diamond/{sample}_aln.txt",
+        # row[4].split("~~~") -> ec, gene, product.replace("^", " "), HMM ID
+        hamap = "hmmsearch/{sample}_HAMAP_sorted.tsv",
+        # row[4].split("~~~") -> ec, enzyme class, enzyme class subfamily, HMM ID
+        dbcan = "hmmsearch/{sample}_dbCAN_sorted.tsv",
         gene2ko = config["gene2ko"],
         kolist = config["ko_list"],
         code2id = config["genome_list"],
