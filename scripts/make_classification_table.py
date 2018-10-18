@@ -24,11 +24,23 @@ def parse_kaiju_output(kaiju):
     return kaiju_classifications
 
 
+def parse_hmm_hits(filename):
+    # contains list of split ACC [4], full seq score [1], and e-value [1]
+    annotations = dict()
+    with gzopen(filename) as fh:
+        reader = csv.reader(fh, delimiter="\t")
+        for hit_id, hits in groupby(reader, key=lambda i: i[0]):
+            for hit in hits:
+                annotations[hit_id] = row[4].split("~~~").extend(row[6:8])
+                break
+    return annotations
+
+
 def main(
-    kaiju, output, lca_threshold
+    kaiju, hamap, dbcan, output, lca_threshold
 ):
-    hamap_hits = parse_hamap(...)
-    dbcan_hits = parse_dbcan(...)
+    hamap_hits = parse_hmm_hits(hamap)
+    dbcan_hits = parse_dbcan(dbcan)
     tax_classifications = parse_kaiju_output(kaiju)
 
     with gzopen() as ifh, open(output, "w") as ofh:
