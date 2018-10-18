@@ -320,7 +320,7 @@ rule run_decontamination:
         stats = "logs/{sample}_decontamination_by_reference.log",
         log = "logs/{sample}_decontamination.log"
     params:
-        path = os.path.join(os.path.dirname(config.get("diamonddb"))),
+        path = os.path.join(os.path.dirname(config["hamap_hmm"])),
         prefix = lambda wc, output: "".join(output.contaminants[0].rpartition("_03_")[0:2]),
         maxindel = config.get("contaminant_max_indel", 5),
         minratio = config.get("contaminant_min_ratio", 0.95),
