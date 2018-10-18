@@ -39,8 +39,14 @@ def parse_hmm_hits(filename):
 def main(
     kaiju, hamap, dbcan, output, lca_threshold
 ):
+    # row[4].split("~~~") -> ec, gene, product.replace("^", " "), HMM ID
     hamap_hits = parse_hmm_hits(hamap)
-    dbcan_hits = parse_dbcan(dbcan)
+    # row[4].split("~~~") -> ec, enzyme class, enzyme class subfamily, HMM ID
+    # ECs may be a comma delimited list
+    dbcan_hits = parse_hmm_hits(dbcan)
+    # row[4].split("~~~") -> ec, gene, product.replace("^", " "), HMM ID
+    # ECs may be a comma delimited list
+    tigrfams_hits = parse_hmm_hits(tigrfams)
     tax_classifications = parse_kaiju_output(kaiju)
 
     with gzopen() as ifh, open(output, "w") as ofh:
@@ -49,8 +55,13 @@ def main(
             "kaiju_length",
             "kaiju_score",
             "kaiju_classification",
-            "hamap...stuff"
-            "dbcan...stuff"
+            "hamap_ec",
+            "hamap_gene",
+            "hamap_product",
+            "hamap_score",
+            "hamap_evalue",
+            "dbcan...",
+            "tigrfams...",
             sep="\t",
             file=ofh,
         )
