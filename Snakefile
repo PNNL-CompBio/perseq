@@ -407,23 +407,91 @@ rule parse_kaiju_for_prot:
     output:
         "kaiju/{sample}.faa"
     run:
+        name_index = 1
         with open(input, "r") as in_file, open(output, "w") as out_file:
             for line in in_file:
                 if line.startswith("C"):
                     toks = line.split("\t")
-                    name = toks[1]
-                    # multiple sequences, same ID, best hit is chosen later
-                    for seq in toks[6].split(sep=","):
-                        if seq:
-                            print(">%s" % name, file=out_file)
-                            print(seq, file=out_file)
+                    # name = toks[1]
+                    # longest translation
+                    seq = max(toks[6].split(sep=","), key=len)
+                    print(">gene_%d" % name_index, file=out_file)
+                    print(seq, file=out_file)
+                    name_index += 1
+
+
+localrules: collect_sequences
+rule collect_sequences:
+    input:
+        faas = expand("kaiju/{sample}.faa", sample=config["samples"].keys())
+    output:
+        faa = "gene_catalog/all_genes.faa"
+    run:
+        import shutil
+
+        with open(output.faa, "wb") as ofh:
+            for f in input.faas:
+                with open(f, "rb") as ifh:
+                    shutil.copyfileobj(ifh, ofh, 1024*1024*10)
+
+
+rule build_gene_db:
+    input:
+        "gene_catalog/all_genes.faa"
+    output:
+        db = temp("gene_catalog/preclustered_genes_db"),
+        extras = temp([
+            "gene_catalog/preclustered_genes_db.dbtype",
+            "gene_catalog/preclustered_genes_db.index",
+            "gene_catalog/preclustered_genes_db.lookup",
+            "gene_catalog/preclustered_genes_db_h",
+            "gene_catalog/preclustered_genes_db_h.index"
+        ]),
+        clustered_db = temp("gene_catalog/clustered_genes_db"),
+        cluster_extras = temp("gene_catalog/clustered_genes_db.index"),
+        representative_seqs = temp("gene_catalog/representative_seqs"),
+        representative_seqs_extras = temp([
+            "gene_catalog/representative_seqs.dbtype",
+            "gene_catalog/representative_seqs.index"
+        ]),
+        fasta = "gene_catalog/clustered_genes.faa"
+    params:
+        cluster_id = config.get("clustering_threshold", 0.90),
+        tmpdir = lambda wildcards, input: os.path.join(os.path.dirname(input), "TMP")
+    conda:
+        CONDAENV
+    threads:
+        config.get("threads", 1)
+    shell:
+        """
+        mmseqs createdb {input} {output.db}
+        mmseqs linclust --threads {threads} -v 1 --min-seq-id 0.90 {output.db} {output.clustered_db} {params.tmpdir}
+        mmseqs result2repseq {output.db} {output.clustered_db} {output.clustered_reps}
+        mmseqs result2flat {output.db} {output.db} {output.clustered_reps} {output.fasta} --use-fasta-header
+        rm -r {params.tmpdir}
+        """
+
+
+rule index_representative_sequences:
+    input:
+        "gene_catalog/clustered_genes.faa"
+    output:
+        "gene_catalog/clustered_genes.dmnd"
+    conda:
+        CONDAENV
+    threads:
+        config.get("threads", 1)
+    shell:
+        """
+        diamond makedb --threads {threads} --db {output} --in {input}
+        """
 
 
 # Will revisit this in a bit...
 # rule split_fasta:
 #     input:
 #         #"quality_control/{sample}_03_clean.fasta.gz"
-#         "translated/{sample}_kaiju.txt"
+#         fasta = "gene_catalog/clustered_genes.faa"
 #     output:
 #         #dynamic("fasta_chunks/{sample}_03_clean_{chunk}.fasta")
 #         dynamic("fasta_chunk/{sample}_kaiju_{chunk}.fasta")
@@ -482,9 +550,9 @@ rule run_hmmsearch:
     # output is sorted by the target HMM library
     input:
         unpack(get_hmm),
-        faa = "kaiju/{sample}.faa"
+        faa = "gene_catalog/clustered_genes.faa"
     output:
-        hits = temp("hmmsearch/{sample}_{hmm}.txt")
+        hits = temp("gene_catalog/{hmm}/unsorted_alignments.txt")
     params:
         evalue = config.get("evalue", 0.05),
         null = os.devnull
@@ -503,10 +571,10 @@ rule sort_hmm_hits:
     # Remove the header, remove spacing, replace spaces with tabs, sort by
     # query then score. Best hit will be first of group.
     input:
-        hits = temp("hmmsearch/{sample}_{hmm}.txt")
+        hits = "gene_catalog/{hmm}/unsorted_alignments.txt"
     output:
         # column[4] contains annotation data
-        hits = temp("hmmsearch/{sample}_{hmm}_sorted.tsv")
+        hits = temp("gene_catalog/{hmm}/alignments.tsv")
     conda:
         CONDAENV
     shell:
@@ -549,6 +617,27 @@ rule sort_hmm_hits:
 #                 print(seq_name,evalue,ec,gene,desc,sep='\t',file=out)
 
 
+rule align_sequences_to_clusters:
+    # reports best hit only per sequence
+    input:
+        dmnd = "gene_catalog/clustered_genes.dmnd",
+        faa = "kaiju/{sample}.faa"
+    output:
+        "gene_catalog/diamond/{sample}.tsv"
+    params:
+        sequence_id = config.get("sequence_threshold", 0.75),
+    conda:
+        CONDAENV
+    threads:
+        config.get("threads", 1)
+    shell:
+        """
+        diamond blastp --threads {threads} --id {params.sequence_id} --unal=1 \
+            --max-target-seqs 1 --more-sensitive --db {input.dmnd} \
+            --out {output} --outfmt 6 --query {input.faa}
+        """
+
+
 rule combine_sample_output:
     input:
         kaiju = "kaiju/{sample}_aln_names.txt",
@@ -558,6 +647,7 @@ rule combine_sample_output:
         dbcan = "hmmsearch/{sample}_dbCAN_sorted.tsv",
         # row[4].split("~~~") -> ec, gene, product.replace("^", " "), HMM ID
         tigrfams = "hmmsearch/{sample}_TIGRFAMs_sorted.tsv"
+        expand("gene_catalog/diamond/{sample}.tsv") ???
     output:
         "tables/{sample}_classifications.txt"
     conda:
