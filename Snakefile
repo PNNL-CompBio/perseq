@@ -774,6 +774,18 @@ rule build_krona_plots:
         """
 
 
+rule zip_attachments:
+    input:
+        function = "summaries/function/ko.txt",
+        taxonomy = "summaries/taxonomy/order.txt",
+        combined = "summaries/combined/ko_phylum.txt",
+        krona_tax = "krona_plots/tax.krona.html",
+        krona_ec = "krona_plots/ec.krona.html"
+    output:
+        "perseq_downloads.zip"
+    shell:
+        """zip {output} {input.function} {input.taxonomy} {input.combined} """
+
 rule build_report:
     input:
         classifications = expand("tables/{sample}_classifications.txt", sample=config["samples"].keys()),
@@ -782,11 +794,8 @@ rule build_report:
         unique_length_logs = expand("logs/{sample}_02_unique_readlengths.txt", sample=config["samples"].keys()),
         clean_logs = expand("logs/{sample}_decontamination.log", sample=config["samples"].keys()),
         merge_logs = expand("logs/{sample}_merge_sequences.log", sample=config["samples"].keys()),
-        function = "summaries/function/ko.txt",
         taxonomy = "summaries/taxonomy/order.txt",
-        combined = "summaries/combined/ko_phylum.txt",
-        krona_tax = "krona_plots/tax.krona.html",
-        krona_ec = "krona_plots/ec.krona.html"
+        ziped_files = "perseq_downloads.zip"
     output:
         "summary.html"
     conda:
@@ -800,6 +809,5 @@ rule build_report:
             --summary-tables 'tables/*_classifications.txt' \
             --r1-quality-files 'logs/*_R1_eestats.txt' \
             --html {output} \
-            {CONDAENV} {input.function} {input.taxonomy} {input.combined} \
-            {input.krona_tax} {input.krona_ec}
+            {CONDAENV} {input.taxonomy} {input.zipped_files}
         """
