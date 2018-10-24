@@ -403,36 +403,25 @@ rule add_full_taxonomy:
 localrules: parse_kaiju_for_prot
 rule parse_kaiju_for_prot:
     input:
-        "kaiju/{sample}_aln_names.txt"
+        txts = expand("kaiju/{sample}_aln_names.txt", sample=config["samples"].keys())
     output:
-        "kaiju/{sample}.faa"
+        faa = "gene_catalog/all_genes.faa",
+        txt = "gene_catalog/all_genes.txt"
     run:
         name_index = 1
-        with open(input, "r") as in_file, open(output, "w") as out_file:
-            for line in in_file:
-                if line.startswith("C"):
-                    toks = line.split("\t")
-                    # name = toks[1]
-                    # longest translation
-                    seq = max(toks[6].split(sep=","), key=len)
-                    print(">gene_%d" % name_index, file=out_file)
-                    print(seq, file=out_file)
-                    name_index += 1
-
-
-localrules: collect_sequences
-rule collect_sequences:
-    input:
-        faas = expand("kaiju/{sample}.faa", sample=config["samples"].keys())
-    output:
-        faa = "gene_catalog/all_genes.faa"
-    run:
-        import shutil
-
-        with open(output.faa, "wb") as ofh:
-            for f in input.faas:
-                with open(f, "rb") as ifh:
-                    shutil.copyfileobj(ifh, ofh, 1024*1024*10)
+        with open(output.faa, "w") as out_faa and open(output.txt, "w") as out_txt:
+            for f in input.txts:
+                with open(f) as fh:
+                    for line in fh:
+                        if line.startswith("C"):
+                            line = line.strip("\r\n")
+                            toks = line.split("\t")
+                            # longest translation
+                            seq = max(toks[6].split(sep=","), key=len)
+                            print(">gene_%d" % name_index, file=out_faa)
+                            print(seq, file=out_faa)
+                            print("gene_%d" % name_index, toks[3], toks[7], sep="\t", file=out_txt)
+                            name_index += 1
 
 
 rule build_gene_db:
@@ -646,22 +635,26 @@ rule combine_sample_output:
         # row[4].split("~~~") -> ec, enzyme class, enzyme class subfamily, HMM ID
         dbcan = "hmmsearch/{sample}_dbCAN_sorted.tsv",
         # row[4].split("~~~") -> ec, gene, product.replace("^", " "), HMM ID
-        tigrfams = "hmmsearch/{sample}_TIGRFAMs_sorted.tsv"
-        expand("gene_catalog/diamond/{sample}.tsv") ???
+        tigrfams = "hmmsearch/{sample}_TIGRFAMs_sorted.tsv",
+        hsps = expand("gene_catalog/diamond/{sample}.tsv"),
+        enzclass = config["enzyme_classes"],
+        enzdat = config["enzyme_nomenclature"]
     output:
-        "tables/{sample}_classifications.txt"
+        "tables/annotations.txt"
     conda:
         CONDAENV
     shell:
         """
-        python scripts/make_classification_table.py {input.kaiju} \
-            {input.hamap} {input.dbcan} {input.tigrfams} {output}
+        python scripts/make_classification_table.py --output {output} \
+            --enzclass {input.enzclass} --enzdat {input.enzyme_nomenclature} \
+            {input.kaiju} {input.hamap} {input.dbcan} {input.tigrfams} \
+            'gene_catalog/diamond/*.tsv'
         """
 
 
 rule build_functional_table:
     input:
-        tables = expand("tables/{sample}_classifications.txt", sample=config["samples"].keys())
+        "tables/annotations.txt"
     output:
         "summaries/function/{function}.txt"
     params:
@@ -725,8 +718,8 @@ rule build_functional_and_tax_table:
 rule build_krona_ec_input:
     input:
         ec_file = "summaries/function/ec.txt",
-        ec_converter = config["ec_converter"],
-        ec_dat_file = config["enzyme_dat_file"]
+        ec_converter = config["enzyme_classes"],
+        ec_dat_file = config["enzyme_nomenclature"]
     output:
         expand("krona_plots/{sample}_ec.txt", sample=config["samples"].keys())
     threads:
@@ -782,9 +775,12 @@ rule zip_attachments:
         krona_tax = "krona_plots/tax.krona.html",
         krona_ec = "krona_plots/ec.krona.html"
     output:
-        "perseq_downloads.zip"
+        temp("perseq_downloads.zip")
     shell:
-        """zip {output} {input.function} {input.taxonomy} {input.combined} """
+        """
+        zip {output} {input.function} {input.taxonomy} {input.combined}
+        """
+
 
 rule build_report:
     input:
@@ -795,7 +791,7 @@ rule build_report:
         clean_logs = expand("logs/{sample}_decontamination.log", sample=config["samples"].keys()),
         merge_logs = expand("logs/{sample}_merge_sequences.log", sample=config["samples"].keys()),
         taxonomy = "summaries/taxonomy/order.txt",
-        ziped_files = "perseq_downloads.zip"
+        zipped_files = "perseq_downloads.zip"
     output:
         "summary.html"
     conda:
