@@ -361,6 +361,23 @@ rule calculate_read_lengths:
         """
 
 
+rule run_prodigal:
+    input:
+        "quality_control/{sample}_03_clean.fasta.gz"
+    output:
+        temp("gene_catalog/prodigal/{sample}_badnames.faa")
+    params:
+        null = os.devnull
+    conda:
+        CONDAENV
+    group:
+        "sample_group"
+    shell:
+        """
+        gunzip -c {input} | prodigal -q -p meta -a {output} -o {params.null}
+        """
+
+
 rule run_taxonomic_classification:
     input:
         "quality_control/{sample}_03_clean.fasta.gz"
@@ -419,9 +436,9 @@ rule parse_kaiju_for_prot:
                             toks = line.split("\t")
                             # longest translation
                             seq = max(toks[6].split(sep=","), key=len)
-                            print(">gene_%d" % name_index, file=out_faa)
+                            print(">%d" % name_index, file=out_faa)
                             print(seq, file=out_faa)
-                            print("gene_%d" % name_index, toks[3], toks[7], sep="\t", file=out_txt)
+                            print(name_index, toks[3], toks[7], sep="\t", file=out_txt)
                             name_index += 1
 
 
