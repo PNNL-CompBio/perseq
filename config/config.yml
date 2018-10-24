@@ -19,9 +19,9 @@ clustering_threshold: 0.90
 # ID threshold when mapping sample AA sequences back to clustered genes; should be less than the clustering threshold
 sequence_threshold: 0.75
 # curl ftp://ftp.expasy.org/databases/enzyme/enzyme.dat | gzip > enzyme.dat.gz
-enzyme_dat_file: resources/enzyme.dat.gz
+enzyme_nomenclature: resources/enzyme.dat.gz
 # curl ftp://ftp.expasy.org/databases/enzyme/enzclass.txt | gzip > enzclass.txt.gz
-ec_converter: resources/enzclass.txt.gz
+enzyme_classes: resources/enzclass.txt.gz
 # process documented in resources/build_hmms.ipynb
 hamap_hmm: resources/HAMAP-ACC.hmm
 tigrfams_hmm: resources/TIGRFAMs_15_0_ACC.hmm
