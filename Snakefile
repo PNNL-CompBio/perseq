@@ -406,6 +406,7 @@ rule parse_kaiju_for_prot:
         txts = expand("kaiju/{sample}_aln_names.txt", sample=config["samples"].keys())
     output:
         faa = "gene_catalog/all_genes.faa",
+        # sequence id, nucleotide length, taxonomic lineage
         txt = "gene_catalog/all_genes.txt"
     run:
         name_index = 1
@@ -563,7 +564,7 @@ rule sort_hmm_hits:
         hits = "gene_catalog/{hmm}/unsorted_alignments.txt"
     output:
         # column[4] contains annotation data
-        hits = temp("gene_catalog/{hmm}/alignments.tsv")
+        hits = "gene_catalog/{hmm}/alignments.tsv"
     conda:
         CONDAENV
     shell:
@@ -629,13 +630,14 @@ rule align_sequences_to_clusters:
 
 rule combine_sample_output:
     input:
-        kaiju = "kaiju/{sample}_aln_names.txt",
+        # sequence id, nucleotide length, taxonomic lineage
+        kaiju = "gene_catalog/all_genes.txt",
         # row[4].split("~~~") -> ec, gene, product.replace("^", " "), HMM ID
-        hamap = "hmmsearch/{sample}_HAMAP_sorted.tsv",
+        hamap = "gene_catalog/HAMAP/alignments.tsv",
         # row[4].split("~~~") -> ec, enzyme class, enzyme class subfamily, HMM ID
-        dbcan = "hmmsearch/{sample}_dbCAN_sorted.tsv",
+        dbcan = "gene_catalog/dbCAN/alignments.tsv",
         # row[4].split("~~~") -> ec, gene, product.replace("^", " "), HMM ID
-        tigrfams = "hmmsearch/{sample}_TIGRFAMs_sorted.tsv",
+        tigrfams = "gene_catalog/TIGRFAMs/alignments.tsv",
         hsps = expand("gene_catalog/diamond/{sample}.tsv"),
         enzclass = config["enzyme_classes"],
         enzdat = config["enzyme_nomenclature"]
