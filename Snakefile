@@ -365,7 +365,7 @@ rule run_prodigal:
     input:
         "quality_control/{sample}_03_clean.fasta.gz"
     output:
-        temp("gene_catalog/prodigal/{sample}_badnames.faa")
+        "gene_catalog/prodigal/{sample}.faa"
     params:
         null = os.devnull
     conda:
@@ -378,68 +378,27 @@ rule run_prodigal:
         """
 
 
-rule run_taxonomic_classification:
+localrules: rename_prodigal_contigs
+rule aggregate_all_genes:
     input:
-        "quality_control/{sample}_03_clean.fasta.gz"
+        faa = expand(
+            "gene_catalog/prodigal/{sample}.faa",
+            sample=config["samples"].keys()
+        )
     output:
-        temp("kaiju/{sample}_aln.txt")
-    params:
-        evalue = config.get("kaiju_evalue", 0.05)
-    threads:
-        config.get("threads", 1)
-    conda:
-        CONDAENV
-    group:
-        "sample_group"
-    shell:
-        """
-        kaiju -t {KAIJUDB}/nodes.dmp \
-            -f {KAIJUDB}/kaiju_db.fmi \
-            -i {input} -o {output} -z {threads} \
-            -a greedy -x -v -E {params.evalue}
-        """
-
-
-rule add_full_taxonomy:
-    input:
-        "kaiju/{sample}_aln.txt"
-    output:
-        "kaiju/{sample}_aln_names.txt"
-    conda:
-        CONDAENV
-    group:
-        "sample_group"
-    shell:
-        """
-        addTaxonNames -t {KAIJUDB}/nodes.dmp -n {KAIJUDB}/names.dmp \
-            -i {input} -o {output} \
-            -r superkingdom,phylum,class,order,family,genus,species
-        """
-
-
-localrules: parse_kaiju_for_prot
-rule parse_kaiju_for_prot:
-    input:
-        txts = expand("kaiju/{sample}_aln_names.txt", sample=config["samples"].keys())
-    output:
-        faa = "gene_catalog/all_genes.faa",
-        # sequence id, nucleotide length, taxonomic lineage
-        txt = "gene_catalog/all_genes.txt"
+        faa = "gene_catalog/all_genes.faa"
     run:
         name_index = 1
-        with open(output.faa, "w") as out_faa and open(output.txt, "w") as out_txt:
-            for f in input.txts:
+        # renames to short, numeric ID
+        with open(output.faa, "w") as out_faa:
+            for f in input.faa:
                 with open(f) as fh:
-                    for line in fh:
-                        if line.startswith("C"):
-                            line = line.strip("\r\n")
-                            toks = line.split("\t")
-                            # longest translation
-                            seq = max(toks[6].split(sep=","), key=len)
-                            print(">%d" % name_index, file=out_faa)
-                            print(seq, file=out_faa)
-                            print(name_index, toks[3], toks[7], sep="\t", file=out_txt)
-                            name_index += 1
+                    for name, seq in readfx(fh):
+                        # per sequence, choose first only
+                        if name.endswith("_2"):
+                            continue
+                        print(">%d" % i, seq, sep="\n", file=out_faa)
+                        name_index += 1
 
 
 rule build_gene_db:
@@ -628,7 +587,7 @@ rule align_sequences_to_clusters:
     # reports best hit only per sequence
     input:
         dmnd = "gene_catalog/clustered_genes.dmnd",
-        faa = "kaiju/{sample}.faa"
+        faa = "gene_catalog/prodigal/{sample}.faa"
     output:
         "gene_catalog/diamond/{sample}.tsv"
     params:
@@ -645,19 +604,52 @@ rule align_sequences_to_clusters:
         """
 
 
+rule run_taxonomic_classification:
+    input:
+        faa = "gene_catalog/clustered_genes.faa",
+        fmi = "{KAIJUDB}/kaiju_db.fmi",
+        nodes = "{KAIJUDB}/nodes.dmp"
+    output:
+        temp("gene_catalog/kaiju/alignments_no_names.txt")
+    params:
+        evalue = config.get("kaiju_evalue", 0.05)
+    threads:
+        config.get("threads", 1)
+    conda:
+        CONDAENV
+    shell:
+        """
+        kaiju -t {input.nodes} -f {input.fmi} -p -i {input} -o {output} \
+            -z {threads} -a greedy -x -v -E {params.evalue}
+        """
+
+
+rule add_full_taxonomy:
+    input:
+        alignments = "gene_catalog/kaiju/alignments_no_names.txt"
+        nodes = "{KAIJUDB}/nodes.dmp"
+        names = "{KAIJUDB}/names.dmp"
+    output:
+        "gene_catalog/kaiju/alignments.txt"
+    conda:
+        CONDAENV
+    shell:
+        """
+        addTaxonNames -t {input.nodes} -n {input.names} -i {input} \
+            -o {output} -r superkingdom,phylum,class,order,family,genus,species
+        """
+
+
 rule combine_sample_output:
     input:
-        # sequence id, nucleotide length, taxonomic lineage
-        kaiju = "gene_catalog/all_genes.txt",
+        kaiju = "gene_catalog/kaiju/alignments.txt",
         # row[4].split("~~~") -> ec, gene, product.replace("^", " "), HMM ID
         hamap = "gene_catalog/HAMAP/alignments.tsv",
         # row[4].split("~~~") -> ec, enzyme class, enzyme class subfamily, HMM ID
         dbcan = "gene_catalog/dbCAN/alignments.tsv",
         # row[4].split("~~~") -> ec, gene, product.replace("^", " "), HMM ID
         tigrfams = "gene_catalog/TIGRFAMs/alignments.tsv",
-        hsps = expand("gene_catalog/diamond/{sample}.tsv"),
-        enzclass = config["enzyme_classes"],
-        enzdat = config["enzyme_nomenclature"]
+        hsps = expand("gene_catalog/diamond/{sample}.tsv")
     output:
         "tables/annotations.txt"
     conda:
