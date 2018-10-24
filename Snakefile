@@ -675,7 +675,7 @@ rule build_functional_table:
         """
         python scripts/summarize_classifications.py \
             --group-on {wildcards.function} --min-id {params.min_id} \
-            --min-len {params.min_len} {input.json} {output} \
+            --min-len {params.min_len} {output} \
             {input.tables}
         """
 
@@ -776,15 +776,15 @@ rule build_krona_plots:
 
 rule zip_attachments:
     input:
-        function = "summaries/function/ko.txt",
+        #function = "summaries/function/ko.txt",
         taxonomy = "summaries/taxonomy/order.txt",
-        combined = "summaries/combined/ko_phylum.txt",
+        #combined = "summaries/combined/ko_phylum.txt",
         krona_tax = "krona_plots/tax.krona.html",
         krona_ec = "krona_plots/ec.krona.html"
     output:
         "perseq_downloads.zip"
     shell:
-        """zip {output} {input.function} {input.taxonomy} {input.combined} """
+        """zip {output} {input.taxonomy} {input.krona_tax} {input.krona_ec}"""
 
 rule build_report:
     input:

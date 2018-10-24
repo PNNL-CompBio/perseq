@@ -19,44 +19,44 @@ TAX_LEVELS = {
     "genus": 6,
     "species": 7,
 }
-FUNCTION_COLS = ["ko", "ec", "product"]
+FUNCTION_COLS = ["ec", "product"]
 
 
-def parse_kegg_json(json_file):
-    kegg_dict = dict()
-    with gzopen(json_file) as filehandle:
-        json_class = json.load(filehandle)
-        for root in json_class["children"]:
-            for level_1 in root["children"]:
-                for level_2 in level_1["children"]:
-                    try:
-                        for level_3 in level_2["children"]:
-                            ko = "ko:" + level_3["name"].partition(" ")[0]
-                            if ko in kegg_dict:
-                                kegg_dict[ko]["level_1"] += ";" + root["name"]
-                                kegg_dict[ko]["level_2"] += ";" + level_1["name"]
-                                kegg_dict[ko]["level_3"] += ";" + level_2["name"]
-                            else:
-                                kegg_dict[ko] = {
-                                    "level_1": root["name"],
-                                    "level_2": level_1["name"],
-                                    "level_3": level_2["name"],
-                                }
-                    except:
-                        ko = "ko:K" + level_2["name"].partition(" ")[0]
-                        if ko in kegg_dict:
-                            kegg_dict[ko]["level_1"] += ";" + root["name"]
-                            kegg_dict[ko]["level_2"] += ";" + level_1["name"]
-                            kegg_dict[ko]["level_3"] += ";" + level_2["name"]
-                        else:
-                            kegg_dict[ko] = {
-                                "level_1": root["name"],
-                                "level_2": level_1["name"],
-                                "level_3": level_2["name"],
-                            }
-    df = pd.DataFrame.from_dict(kegg_dict, orient="index").reset_index()
-    df = df.rename(columns={"index": "ko"})
-    return df[["ko", "level_1", "level_2", "level_3"]]
+# def parse_kegg_json(json_file):
+#     kegg_dict = dict()
+#     with gzopen(json_file) as filehandle:
+#         json_class = json.load(filehandle)
+#         for root in json_class["children"]:
+#             for level_1 in root["children"]:
+#                 for level_2 in level_1["children"]:
+#                     try:
+#                         for level_3 in level_2["children"]:
+#                             ko = "ko:" + level_3["name"].partition(" ")[0]
+#                             if ko in kegg_dict:
+#                                 kegg_dict[ko]["level_1"] += ";" + root["name"]
+#                                 kegg_dict[ko]["level_2"] += ";" + level_1["name"]
+#                                 kegg_dict[ko]["level_3"] += ";" + level_2["name"]
+#                             else:
+#                                 kegg_dict[ko] = {
+#                                     "level_1": root["name"],
+#                                     "level_2": level_1["name"],
+#                                     "level_3": level_2["name"],
+#                                 }
+#                     except:
+#                         ko = "ko:K" + level_2["name"].partition(" ")[0]
+#                         if ko in kegg_dict:
+#                             kegg_dict[ko]["level_1"] += ";" + root["name"]
+#                             kegg_dict[ko]["level_2"] += ";" + level_1["name"]
+#                             kegg_dict[ko]["level_3"] += ";" + level_2["name"]
+#                         else:
+#                             kegg_dict[ko] = {
+#                                 "level_1": root["name"],
+#                                 "level_2": level_1["name"],
+#                                 "level_3": level_2["name"],
+#                             }
+#     df = pd.DataFrame.from_dict(kegg_dict, orient="index").reset_index()
+#     df = df.rename(columns={"index": "ko"})
+#     return df[["ko", "level_1", "level_2", "level_3"]]
 
 
 def df_from_classifications(tbl_path, group_on, split_idx, min_perc_id, min_len):
@@ -103,20 +103,19 @@ def main(json_file, output, tables, tax_level, min_perc_id, min_len, group_on):
     sample_df = sample_df.rename(
         columns={"kaiju_classification": f"taxonomy_{tax_level}"}
     )
-    if "ko" in group_on:
-        logging.info(f"Adding KEGG hierarchy from {json_file}")
-        kegg_pd = parse_kegg_json(json_file)
-        logging.debug(
-            f"Table shape prior to merging with KEGG hierarchy: {sample_df.shape}"
-        )
-        sample_df = sample_df.merge(kegg_pd, on="ko", how="inner")
+    # if "ko" in group_on:
+    #     logging.info(f"Adding KEGG hierarchy from {json_file}")
+    #     kegg_pd = parse_kegg_json(json_file)
+    #     logging.debug(
+    #         f"Table shape prior to merging with KEGG hierarchy: {sample_df.shape}"
+    #     )
+    #     sample_df = sample_df.merge(kegg_pd, on="ko", how="inner")
         logging.debug(f"After performing inner join: {sample_df.shape}")
     sample_df.to_csv(output, sep="\t", index=False)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("json", help="KEGG hierarchy")
     parser.add_argument("output", help="Output table")
     parser.add_argument("tables", nargs="+", help="classifications.txt")
     parser.add_argument(
