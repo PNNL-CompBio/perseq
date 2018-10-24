@@ -131,7 +131,9 @@ def parse_ec_file(ec_file_from_summaries):
 #             output + "/" + f"{item}" + "_ec.txt", sep="\t", index=False, header=False
 #         )
 
-def main(kaiju, hamap, dbcan, tigrfams, output):
+
+
+def main(kaiju, hamap, dbcan, tigrfams, enzclass, enzdat, output):
     # row[4].split("~~~") -> ec, gene, product.replace("^", " "), HMM ID
     hamap_hits = parse_hmm_hits(hamap)
     # row[4].split("~~~") -> ec, enzyme class, enzyme class subfamily, HMM ID
@@ -140,6 +142,12 @@ def main(kaiju, hamap, dbcan, tigrfams, output):
     # row[4].split("~~~") -> ec, gene, product.replace("^", " "), HMM ID
     # ECs may be a comma delimited list
     tigrfams_hits = parse_hmm_hits(tigrfams)
+    kaiju =
+
+
+choosing best ec
+tigrfams -> hamap -> dbcan
+
 
     with gzopen(kaiju) as ifh, open(output, "w") as ofh:
         print(
@@ -152,8 +160,16 @@ def main(kaiju, hamap, dbcan, tigrfams, output):
             "hamap_product",
             "hamap_score",
             "hamap_evalue",
-            "dbcan...",
-            "tigrfams...",
+            "dbcan_ec",
+            "dbcan_gene",
+            "dbcan_product",
+            "dbcan_score",
+            "dbcan_evalue",
+            "tigrfams_ec",
+            "tigrfams_gene",
+            "tigrfams_product",
+            "tigrfams_score",
+            "tigrfams_evalue",
             sep="\t",
             file=ofh,
         )
@@ -166,7 +182,10 @@ if __name__ == "__main__":
     p.add_argument("hamap")
     p.add_argument("dbcan")
     p.add_argument("tigrfams")
-    p.add_argument("output", help="classification table")
+
+    p.add_argument("--enzclass", help="definition of enzyme classes")
+    p.add_argument("--enzdat", help="full enzyme nomenclature database (.dat)")
+    p.add_argument("--output", help="annotation table with sample counts")
     args = p.parse_args()
     logging.basicConfig(
         level=logging.INFO, datefmt="%Y-%m-%d %H:%M", format="[%(asctime)s] %(message)s"
@@ -176,5 +195,7 @@ if __name__ == "__main__":
         args.hamap,
         args.dbcan,
         args.tigrfams,
+        args.enzclass,
+        args.enzdat,
         args.output,
     )
