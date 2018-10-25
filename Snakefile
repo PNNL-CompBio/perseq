@@ -681,7 +681,7 @@ rule build_functional_table:
         """
         python scripts/summarize_classifications.py \
             --group-on {wildcards.function} --min-id {params.min_id} \
-            --min-len {params.min_len} {output} {input.tables}
+            --min-len {params.min_len} {output} {input}
         """
 
 
