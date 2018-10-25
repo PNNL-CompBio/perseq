@@ -607,8 +607,8 @@ rule align_sequences_to_clusters:
 rule run_taxonomic_classification:
     input:
         faa = "gene_catalog/clustered_genes.faa",
-        fmi = "{KAIJUDB}/kaiju_db.fmi",
-        nodes = "{KAIJUDB}/nodes.dmp"
+        fmi = f"{KAIJUDB}/kaiju_db.fmi",
+        nodes = f"{KAIJUDB}/nodes.dmp"
     output:
         temp("gene_catalog/kaiju/alignments_no_names.txt")
     params:
@@ -627,8 +627,8 @@ rule run_taxonomic_classification:
 rule add_full_taxonomy:
     input:
         alignments = "gene_catalog/kaiju/alignments_no_names.txt",
-        nodes = "{KAIJUDB}/nodes.dmp",
-        names = "{KAIJUDB}/names.dmp"
+        nodes = f"{KAIJUDB}/nodes.dmp",
+        names = f"{KAIJUDB}/names.dmp"
     output:
         "gene_catalog/kaiju/alignments.txt"
     conda:
