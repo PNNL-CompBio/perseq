@@ -431,9 +431,12 @@ rule build_gene_db:
     shell:
         """
         mmseqs createdb {input.faa} {output.db}
-        mmseqs linclust --threads {threads} -v 1 --min-seq-id 0.90 {output.db} {output.clustered_db} {params.tmpdir}
-        mmseqs result2repseq {output.db} {output.clustered_db} {output.clustered_reps}
-        mmseqs result2flat {output.db} {output.db} {output.clustered_reps} {output.fasta} --use-fasta-header
+        mmseqs linclust --threads {threads} -v 1 --min-seq-id 0.90 \
+            {output.db} {output.clustered_db} {params.tmpdir}
+        mmseqs result2repseq {output.db} {output.clustered_db} \
+            {output.representative_seqs}
+        mmseqs result2flat {output.db} {output.db} \
+            {output.representative_seqs} {output.fasta} --use-fasta-header
         rm -r {params.tmpdir}
         """
 
