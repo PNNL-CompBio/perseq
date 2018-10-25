@@ -660,7 +660,6 @@ rule combine_sample_output:
     shell:
         """
         python scripts/make_classification_table.py --output {output} \
-            --enzclass {input.enzclass} --enzdat {input.enzyme_nomenclature} \
             {input.kaiju} {input.hamap} {input.dbcan} {input.tigrfams} \
             'gene_catalog/diamond/*.tsv'
         """
