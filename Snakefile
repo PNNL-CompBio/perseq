@@ -378,7 +378,7 @@ rule run_prodigal:
         """
 
 
-localrules: rename_prodigal_contigs
+localrules: aggregate_all_genes
 rule aggregate_all_genes:
     input:
         faa = expand(
@@ -686,7 +686,7 @@ rule build_functional_table:
 
 rule build_tax_table:
     input:
-        tables = expand("tables/{sample}_classifications.txt", sample=config["samples"].keys())
+        "tables/annotations.txt"
     output:
         "summaries/taxonomy/{tax_classification}.txt"
     params:
@@ -707,14 +707,12 @@ rule build_tax_table:
 
 rule build_functional_and_tax_table:
     input:
-        tables = expand("tables/{sample}_classifications.txt", sample=config["samples"].keys())
+        "tables/annotations.txt"
     output:
         "summaries/combined/{function}_{tax_classification}.txt"
     params:
         min_id = config.get("min_percent_id", 50),
         min_len = config.get("min_alignment_length", 40)
-    threads:
-        1
     conda:
         CONDAENV
     shell:
@@ -733,25 +731,21 @@ rule build_krona_ec_input:
         ec_dat_file = config["enzyme_nomenclature"]
     output:
         expand("krona_plots/{sample}_ec.txt", sample=config["samples"].keys())
-    threads:
-        1
     conda:
         CONDAENV
     shell:
         """
         python scripts/build_krona.py --ec-file {input.ec_converter} \
-            --dat-file {input.ec_dat_file} --ec-file-from-summaries {input.ec_file} \
-            krona_plots
+            --dat-file {input.ec_dat_file} --ec-file-from-summaries \
+            {input.ec_file} krona_plots
         """
 
 
 rule build_krona_taxonomy_input:
     input:
-        tax_file="summaries/taxonomy/order.txt"
+        tax_file = "summaries/taxonomy/order.txt"
     output:
         expand("krona_plots/{sample}_tax.txt", sample=config["samples"].keys())
-    threads:
-        1
     conda:
         CONDAENV
     shell:
@@ -767,8 +761,6 @@ rule build_krona_plots:
     output:
         tax = "krona_plots/tax.krona.html",
         ec = "krona_plots/ec.krona.html"
-    threads:
-        1
     conda:
         CONDAENV
     shell:
