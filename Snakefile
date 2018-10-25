@@ -654,7 +654,7 @@ rule combine_sample_output:
         tigrfams = "gene_catalog/TIGRFAMs/alignments.tsv",
         hsps = expand("gene_catalog/diamond/{sample}.tsv", sample=config["samples"].keys())
     output:
-        "tables/annotations.txt"
+        "gene_catalog/annotations.txt"
     conda:
         CONDAENV
     shell:
@@ -667,7 +667,7 @@ rule combine_sample_output:
 
 rule build_functional_table:
     input:
-        "tables/annotations.txt"
+        "gene_catalog/annotations.txt"
     output:
         "summaries/function/{function}.txt"
     params:
@@ -687,7 +687,7 @@ rule build_functional_table:
 
 rule build_tax_table:
     input:
-        "tables/annotations.txt"
+        "gene_catalog/annotations.txt"
     output:
         "summaries/taxonomy/{tax_classification}.txt"
     params:
@@ -708,7 +708,7 @@ rule build_tax_table:
 
 rule build_functional_and_tax_table:
     input:
-        "tables/annotations.txt"
+        "gene_catalog/annotations.txt"
     output:
         "summaries/combined/{function}_{tax_classification}.txt"
     params:
@@ -788,7 +788,7 @@ rule zip_attachments:
 
 rule build_report:
     input:
-        annotations = "tables/annotations.txt",
+        annotations = "gene_catalog/annotations.txt",
         ee_stats = expand("logs/{sample}_{idx}_eestats.txt", sample=config["samples"].keys(), idx=["R1", "R2"]),
         clean_length_logs = expand("logs/{sample}_03_clean_readlengths.txt", sample=config["samples"].keys()),
         unique_length_logs = expand("logs/{sample}_02_unique_readlengths.txt", sample=config["samples"].keys()),
