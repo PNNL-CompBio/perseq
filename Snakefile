@@ -626,8 +626,8 @@ rule run_taxonomic_classification:
 
 rule add_full_taxonomy:
     input:
-        alignments = "gene_catalog/kaiju/alignments_no_names.txt"
-        nodes = "{KAIJUDB}/nodes.dmp"
+        alignments = "gene_catalog/kaiju/alignments_no_names.txt",
+        nodes = "{KAIJUDB}/nodes.dmp",
         names = "{KAIJUDB}/names.dmp"
     output:
         "gene_catalog/kaiju/alignments.txt"
