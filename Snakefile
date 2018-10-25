@@ -403,7 +403,7 @@ rule aggregate_all_genes:
 
 rule build_gene_db:
     input:
-        "gene_catalog/all_genes.faa"
+        faa = "gene_catalog/all_genes.faa"
     output:
         db = temp("gene_catalog/preclustered_genes_db"),
         extras = temp([
@@ -423,14 +423,14 @@ rule build_gene_db:
         fasta = "gene_catalog/clustered_genes.faa"
     params:
         cluster_id = config.get("clustering_threshold", 0.90),
-        tmpdir = lambda wildcards, input: os.path.join(os.path.dirname(input), "TMP")
+        tmpdir = lambda wildcards, input: os.path.join(os.path.dirname(input.faa), "TMP")
     conda:
         CONDAENV
     threads:
         config.get("threads", 1)
     shell:
         """
-        mmseqs createdb {input} {output.db}
+        mmseqs createdb {input.faa} {output.db}
         mmseqs linclust --threads {threads} -v 1 --min-seq-id 0.90 {output.db} {output.clustered_db} {params.tmpdir}
         mmseqs result2repseq {output.db} {output.clustered_db} {output.clustered_reps}
         mmseqs result2flat {output.db} {output.db} {output.clustered_reps} {output.fasta} --use-fasta-header
