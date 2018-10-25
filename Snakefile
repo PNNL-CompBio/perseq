@@ -787,7 +787,7 @@ rule zip_attachments:
 
 rule build_report:
     input:
-        classifications = expand("tables/{sample}_classifications.txt", sample=config["samples"].keys()),
+        annotations = "tables/annotations.txt",
         ee_stats = expand("logs/{sample}_{idx}_eestats.txt", sample=config["samples"].keys(), idx=["R1", "R2"]),
         clean_length_logs = expand("logs/{sample}_03_clean_readlengths.txt", sample=config["samples"].keys()),
         unique_length_logs = expand("logs/{sample}_02_unique_readlengths.txt", sample=config["samples"].keys()),
@@ -805,7 +805,7 @@ rule build_report:
             --clean-logs 'logs/*_03_clean_readlengths.txt' \
             --unique-logs 'logs/*_02_unique_readlengths.txt' \
             --merge-logs 'logs/*_merge_sequences.log' \
-            --summary-tables 'tables/*_classifications.txt' \
+            --summary-tables {input.annotations} \
             --r1-quality-files 'logs/*_R1_eestats.txt' \
             --html {output} \
             {CONDAENV} {input.taxonomy} {input.zipped_files}
