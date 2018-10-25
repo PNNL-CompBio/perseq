@@ -702,7 +702,7 @@ rule build_tax_table:
         python scripts/summarize_classifications.py \
             --group-on kaiju_classification --min-len {params.min_len} \
             --min-id {params.min_id} --tax-level {wildcards.tax_classification} \
-            {output} {input.tables}
+            {output} {input}
         """
 
 
@@ -721,7 +721,7 @@ rule build_functional_and_tax_table:
         python scripts/summarize_classifications.py \
             --group-on {wildcards.function} kaiju_classification \
             --tax-level {wildcards.tax_classification} --min-id {params.min_id} \
-            --min-len {params.min_len} {output} {input.tables}
+            --min-len {params.min_len} {output} {input}
         """
 
 
@@ -744,14 +744,14 @@ rule build_krona_ec_input:
 
 rule build_krona_taxonomy_input:
     input:
-        tax_file = "summaries/taxonomy/order.txt"
+        "summaries/taxonomy/order.txt"
     output:
         expand("krona_plots/{sample}_tax.txt", sample=config["samples"].keys())
     conda:
         CONDAENV
     shell:
         """
-        python scripts/build_krona.py --tax-file {input.tax_file} krona_plots
+        python scripts/build_krona.py --tax-file {input} krona_plots
         """
 
 
