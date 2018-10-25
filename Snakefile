@@ -681,8 +681,7 @@ rule build_functional_table:
         """
         python scripts/summarize_classifications.py \
             --group-on {wildcards.function} --min-id {params.min_id} \
-            --min-len {params.min_len} {input.json} {output} \
-            {input.tables}
+            --min-len {params.min_len} {output} {input.tables}
         """
 
 
@@ -703,7 +702,7 @@ rule build_tax_table:
         python scripts/summarize_classifications.py \
             --group-on kaiju_classification --min-len {params.min_len} \
             --min-id {params.min_id} --tax-level {wildcards.tax_classification} \
-            {input.json} {output} {input.tables}
+            {output} {input.tables}
         """
 
 
@@ -722,7 +721,7 @@ rule build_functional_and_tax_table:
         python scripts/summarize_classifications.py \
             --group-on {wildcards.function} kaiju_classification \
             --tax-level {wildcards.tax_classification} --min-id {params.min_id} \
-            --min-len {params.min_len} {input.json} {output} {input.tables}
+            --min-len {params.min_len} {output} {input.tables}
         """
 
 
