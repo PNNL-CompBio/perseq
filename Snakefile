@@ -649,7 +649,7 @@ rule combine_sample_output:
         dbcan = "gene_catalog/dbCAN/alignments.tsv",
         # row[4].split("~~~") -> ec, gene, product.replace("^", " "), HMM ID
         tigrfams = "gene_catalog/TIGRFAMs/alignments.tsv",
-        hsps = expand("gene_catalog/diamond/{sample}.tsv")
+        hsps = expand("gene_catalog/diamond/{sample}.tsv", sample=config["samples"].keys())
     output:
         "tables/annotations.txt"
     conda:
