@@ -393,7 +393,7 @@ rule aggregate_all_genes:
         with open(output.faa, "w") as out_faa:
             for f in input.faa:
                 with open(f) as fh:
-                    for name, seq in readfx(fh):
+                    for name, seq, _ in readfx(fh):
                         # per sequence, choose first only
                         if name.endswith("_2"):
                             continue
