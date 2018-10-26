@@ -397,7 +397,7 @@ rule aggregate_all_genes:
                         # per sequence, choose first only
                         if name.endswith("_2"):
                             continue
-                        print(">%d" % i, seq, sep="\n", file=out_faa)
+                        print(">%d" % name_index, seq, sep="\n", file=out_faa)
                         name_index += 1
 
 
