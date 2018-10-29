@@ -601,7 +601,7 @@ rule align_sequences_to_clusters:
         config.get("threads", 1)
     shell:
         """
-        diamond blastp --threads {threads} --id {params.sequence_id} --unal=1 \
+        diamond blastp --threads {threads} --id {params.sequence_id} \
             --max-target-seqs 1 --more-sensitive --db {input.dmnd} \
             --out {output} --outfmt 6 --query {input.faa}
         """
