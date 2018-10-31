@@ -463,6 +463,7 @@ rule index_hmm_libraries:
         """
 
 
+localrules: split_fasta
 rule split_fasta:
     input:
         fasta = "gene_catalog/clustered_genes.faa"
