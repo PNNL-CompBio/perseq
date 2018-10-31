@@ -456,44 +456,6 @@ rule index_representative_sequences:
         """
 
 
-# Will revisit this in a bit...
-# rule split_fasta:
-#     input:
-#         #"quality_control/{sample}_03_clean.fasta.gz"
-#         fasta = "gene_catalog/clustered_genes.faa"
-#     output:
-#         #dynamic("fasta_chunks/{sample}_03_clean_{chunk}.fasta")
-#         dynamic("fasta_chunk/{sample}_kaiju_{chunk}.fasta")
-#     # conda:
-#     #     CONDAENV
-#     params:
-#         # 20 MB chunks
-#         chunk_size=config.get("chunk_size",1048576),
-#         sample='{sample}'
-#     run:
-#
-#         with open(input, 'r') as file:
-#             n=0
-#             #file_out = "sample_03_clean_{INDEX}.fasta"
-#             while True:
-#                 #file_out={params.sample}
-#                 # continue to write to one file
-#                 #with open("fasta_chunks/"+{params.sample}+"_03_clean_"+str(n)+".fasta", 'w') as out:
-#                 with open("fasta_chunks/"+{params.sample}+"_kaiju"+str(n)+".fasta", 'w') as out:
-#                     current_bytes = 0
-#                     for_loop = False
-#                     for x, (name, seq, other) in enumerate(readfx(file)):
-#                         if current_bytes > {params.chunk_size}:
-#                             for_loop = True
-#                             n+=1
-#                             break
-#                         current_bytes += len(name) + len(seq)
-#                         out.write(">" + name + '\n')
-#                         out.write(seq + '\n')
-#                     if not for_loop:
-#                         break
-
-
 rule index_hmm_libraries:
     input:
         hamap = config["hamap_hmm"],
@@ -515,13 +477,36 @@ rule index_hmm_libraries:
         """
 
 
+rule split_fasta:
+    input:
+        fasta = "gene_catalog/clustered_genes.faa"
+    output:
+        temp((dynamic("gene_catalog/tmp/clustered_genes_{chunk}.faa")))
+    params:
+        # consider a smaller chunk size
+        chunk_size = config.get("chunk_size", 1000000)
+    run:
+        fasta_chunk = None
+        with open(input.fasta) as fasta_fh:
+            for lineno, (name, seq, _) in enumerate(readfx(fasta_fh)):
+                if lineno % params.chunk_size == 0:
+                    if fasta_chunk:
+                        fasta_chunk.close()
+                    fasta_chunk_filename = f"gene_catalog/tmp/clustered_genes_{lineno + params.chunk_size}.faa"
+                    fasta_chunk = open(fasta_chunk_filename, "w")
+                fasta_chunk.write(f">{name}")
+                fasta_chunk.write(seq)
+            if fasta_chunk:
+                fasta_chunk.close()
+
+
 rule run_hmmsearch:
     # output is sorted by the target HMM library
     input:
         unpack(get_hmm),
-        faa = "gene_catalog/clustered_genes.faa"
+        faa = "gene_catalog/tmp/clustered_genes_{chunk}.faa"
     output:
-        hits = temp("gene_catalog/{hmm}/unsorted_alignments.txt")
+        hits = temp("gene_catalog/{hmm}/unsorted_alignments_{chunk}.txt")
     params:
         evalue = config.get("evalue", 0.05),
         null = os.devnull
@@ -540,7 +525,7 @@ rule sort_hmm_hits:
     # Remove the header, remove spacing, replace spaces with tabs, sort by
     # query then score. Best hit will be first of group.
     input:
-        hits = "gene_catalog/{hmm}/unsorted_alignments.txt"
+        hits = dynamic(expand("gene_catalog/{{hmm}}/unsorted_alignments_{chunk}.txt"))
     output:
         # column[4] contains annotation data
         hits = "gene_catalog/{hmm}/alignments.tsv"
@@ -550,40 +535,6 @@ rule sort_hmm_hits:
         """
         grep -v '^#' {input.hits} | tr -s ' ' | tr ' ' '\t' | sort -k1,1 -k8,8nr > {output.hits}
         """
-
-
-# rule merge_chunks:
-#     input:
-#         dynamic(expand("hmm_scan/{sample}_hmmscan_{{chunk}}.txt",sample=config["samples"].keys()))
-#     output:
-#         "full_hmmscan/{sample}_hmmscan.txt"
-#     shell:
-#         "cat {input} > {output}"
-
-
-# rule parse_hmmscan_output:
-#     input:
-#         "full_hmmscan/{sample}_hmmscan.txt"
-#     output:
-#         "hmm/{sample}_hmmscan.txt"
-#     run:
-#         with open(input,"r") as file, open(output,"w") as out:
-#             print("seq_name","evalue","ec","gene","desc",sep='\t',file=out)
-#             for line in file:
-#                 if line.startswith('#'):
-#                     continue
-#                 toks= line.strip().split()
-#                 seq_name=toks[3]
-#                 try:
-#                     evalue = toks[6]
-#                 except:
-#                     print(toks)
-#                     break
-#                 info = toks[22].split('~~~')
-#                 ec = info[0]
-#                 gene = info[1]
-#                 desc = info[2]
-#                 print(seq_name,evalue,ec,gene,desc,sep='\t',file=out)
 
 
 rule align_sequences_to_clusters:
