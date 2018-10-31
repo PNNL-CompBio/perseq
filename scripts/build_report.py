@@ -306,10 +306,7 @@ def main(
     html,
     conda_env,
     function_table,
-    taxonomy_table,
-    taxonomy_function_table,
-    krona_tax,
-    krona_ec,
+    zipped_file
 ):
     clean_logs = glob(clean_logs)
     unique_logs = glob(unique_logs)
@@ -514,11 +511,12 @@ Downloads
     report(
         report_str,
         html,
-        file1=function_table,
-        file2=taxonomy_table,
-        file3=taxonomy_function_table,
-        kronaplot_tax=krona_tax,
-        kronaplot_ec=krona_ec,
+        downloads = zipped_file,
+        # file1=function_table,
+        # file2=taxonomy_table,
+        # file3=taxonomy_function_table,
+        # kronaplot_tax=krona_tax,
+        # kronaplot_ec=krona_ec,
         stylesheet="",
     )
 
@@ -533,10 +531,11 @@ if __name__ == "__main__":
     p.add_argument("--html")
     p.add_argument("conda_env")
     p.add_argument("function_table")
-    p.add_argument("taxonomy_table")
-    p.add_argument("taxonomy_function_table")
-    p.add_argument("krona_tax")
-    p.add_argument("krona_ec")
+    p.add_argument("zipped_file")
+    # p.add_argument("taxonomy_table")
+    # p.add_argument("taxonomy_function_table")
+    # p.add_argument("krona_tax")
+    # p.add_argument("krona_ec")
     args = p.parse_args()
     main(
         args.clean_logs,
@@ -547,8 +546,9 @@ if __name__ == "__main__":
         args.html,
         args.conda_env,
         args.function_table,
-        args.taxonomy_table,
-        args.taxonomy_function_table,
-        args.krona_tax,
-        args.krona_ec,
+        args.zipped_file,
+        # args.taxonomy_table,
+        # args.taxonomy_function_table,
+        # args.krona_tax,
+        # args.krona_ec,
     )

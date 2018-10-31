@@ -4,7 +4,7 @@ data: tests/data
 threads: 8
 # specify a number that represents GBs of available RAM
 java_mem: 16
-#number of reads to subsample by
+# number of reads to subsample by; 0 to disable
 subsample: 60000
 # adapter trimming occurs after successful sequence merge
 adapters: resources/adapters.fa
@@ -14,23 +14,15 @@ contaminant_references:
 # contains kaiju_db.fmi, nodes.dmp, and names.dmp
 # makeDB.sh -e
 kaijudb: tests/refdata
-# cat ftp.bioinformatics.jp/kegg/genes/fasta/family_eukaryotes.pep.gz ftp.bioinformatics.jp/kegg/genes/fasta/genus_prokaryotes.pep.gz > temp
-# python scripts/filter_kegg_fa.py ftp.bioinformatics.jp/kegg/genes/misc/taxonomy temp > kegg_feukaryotes_gprokaryotes.faa
-diamonddb: tests/refdata/kegg_feukaryotes_gprokaryotes.faa
-# links genes (hsa:578) to KO (ko:K14021)
-# this file could also be created using their RESTful interface by looking up all KOs at http://rest.kegg.jp/link/genes/K14021; perseq's expectation is for species to be in column 1 and KO to be in column 2
-# ftp.bioinformatics.jp/kegg/genes/links/genes_ko.list.gz
-gene2ko: tests/refdata/genes_ko.list.gz
-# defines the KOs within KEGG's hierarchy
-# curl 'http://www.genome.jp/kegg-bin/download_htext?htext=ko00001&format=json' --location | gzip > kegg_hierarchy.json.gz
-ko_hierarchy: resources/kegg_hierarchy.json.gz
-# defines KO and the KO's description
-# curl http://rest.kegg.jp/list/ko > ko_list.txt
-ko_list: resources/ko_list.txt.gz
-# links KEGG's species code with NCBI's
-# curl http://rest.kegg.jp/list/genome | gzip > genome_list.txt.gz
-genome_list: resources/genome_list.txt.gz
+# ID threshold when clustering gene catalog
+clustering_threshold: 0.90
+# ID threshold when mapping sample AA sequences back to clustered genes; should be less than the clustering threshold
+sequence_threshold: 0.75
 # curl ftp://ftp.expasy.org/databases/enzyme/enzyme.dat | gzip > enzyme.dat.gz
-enzyme_dat_file: resources/enzyme.dat.gz
+enzyme_nomenclature: resources/enzyme.dat.gz
 # curl ftp://ftp.expasy.org/databases/enzyme/enzclass.txt | gzip > enzclass.txt.gz
-ec_converter: resources/enzclass.txt.gz
+enzyme_classes: resources/enzclass.txt.gz
+# process documented in resources/build_hmms.ipynb
+hamap_hmm: resources/HAMAP-ACC.hmm
+tigrfams_hmm: resources/TIGRFAMs_15_0_ACC.hmm
+dbcan_hmm: resources/dbCAN-HMMdb-V7-ACC.hmm
