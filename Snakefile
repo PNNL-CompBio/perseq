@@ -546,6 +546,7 @@ rule align_sequences_to_clusters:
         "gene_catalog/diamond/{sample}.tsv"
     params:
         sequence_id = config.get("sequence_threshold", 0.75),
+        block_size = config.get("block_size", 8)
     conda:
         CONDAENV
     threads:
@@ -553,8 +554,8 @@ rule align_sequences_to_clusters:
     shell:
         """
         diamond blastp --threads {threads} --id {params.sequence_id} \
-            --max-target-seqs 1 --more-sensitive --db {input.dmnd} \
-            --out {output} --outfmt 6 --query {input.faa}
+            --max-target-seqs 1 --db {input.dmnd} --out {output} --outfmt 6 \
+            --query {input.faa} --block-size {params.block_size}
         """
 
 
