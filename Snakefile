@@ -525,7 +525,7 @@ rule sort_hmm_hits:
     # Remove the header, remove spacing, replace spaces with tabs, sort by
     # query then score. Best hit will be first of group.
     input:
-        hits = dynamic(expand("gene_catalog/{{hmm}}/unsorted_alignments_{chunk}.txt"))
+        hits = dynamic("gene_catalog/{hmm}/unsorted_alignments_{chunk}.txt")
     output:
         # column[4] contains annotation data
         hits = "gene_catalog/{hmm}/alignments.tsv"
