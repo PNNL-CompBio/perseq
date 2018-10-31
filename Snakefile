@@ -480,8 +480,8 @@ rule split_fasta:
                         fasta_chunk.close()
                     fasta_chunk_filename = f"gene_catalog/tmp/clustered_genes_{lineno + params.chunk_size}.faa"
                     fasta_chunk = open(fasta_chunk_filename, "w")
-                fasta_chunk.write(f">{name}")
-                fasta_chunk.write(seq)
+                fasta_chunk.write(f">{name}\n")
+                fasta_chunk.write(f"{seq}\n")
             if fasta_chunk:
                 fasta_chunk.close()
 
