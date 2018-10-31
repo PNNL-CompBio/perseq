@@ -210,8 +210,6 @@ rule get_raw_fastq_qualities:
         CONDAENV
     threads:
         1
-    group:
-        "sample_group"
     shell:
         # TODO seqtk fqchk
         """
@@ -230,8 +228,6 @@ rule subsample_sequences:
         1
     conda:
         CONDAENV
-    group:
-        "sample_group"
     shell:
         """
         seqtk sample -s100 {input} {params.subsample} | gzip > {output}
@@ -254,8 +250,6 @@ rule merge_sequences:
         java_mem = config.get("java_mem", 60)
     conda:
         CONDAENV
-    group:
-        "sample_group"
     shell:
         """
         bbmerge.sh threads={threads} k=60 extend2=60 iterations=5 \
@@ -279,8 +273,6 @@ rule deduplicate_reads:
         java_mem = config.get("java_mem", 60)
     conda:
         CONDAENV
-    group:
-        "sample_group"
     shell:
         """
         clumpify.sh in={input} out={output.fa} dedupe=t threads={threads} \
@@ -333,8 +325,6 @@ rule run_decontamination:
         java_mem = config.get("java_mem", 60)
     conda:
         CONDAENV
-    group:
-        "sample_group"
     shell:
         """
         bbsplit.sh in={input.fa} outu={output.fa} fastareadlen=300 \
@@ -353,8 +343,6 @@ rule calculate_read_lengths:
         "logs/{file}_readlengths.txt"
     conda:
         CONDAENV
-    group:
-        "sample_group"
     shell:
         """
         readlength.sh in={input} out={output}
@@ -370,8 +358,6 @@ rule run_prodigal:
         null = os.devnull
     conda:
         CONDAENV
-    group:
-        "sample_group"
     shell:
         """
         gunzip -c {input} | prodigal -q -p meta -a {output} -o {params.null}
