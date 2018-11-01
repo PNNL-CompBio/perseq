@@ -520,7 +520,11 @@ rule sort_hmm_hits:
         CONDAENV
     shell:
         """
-        cat {input.hits} | grep -v '^#' | tr -s ' ' | tr ' ' '\t' | sort -k1,1 -k8,8nr > {output.hits}
+        cat {input.hits} | \
+            grep -v '^#' | \
+            tr -s ' ' | \
+            tr ' ' '\t' | \
+            sort --buffer-size=50% -k1,1 -k8,8nr > {output.hits}
         """
 
 
