@@ -206,9 +206,11 @@ localrules: print_samples
 rule print_samples:
     output:
         "SAMPLES.txt"
+    params:
+        samples = config["samples"]
     run:
         with open(output[0], "w") as fh:
-            for k, v in SAMPLES.items():
+            for k, v in params.samples.items():
                 print("%s: %s; %s" % (k, v["R1"], v["R2"]), file=fh)
 
 
