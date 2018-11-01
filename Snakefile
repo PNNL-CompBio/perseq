@@ -189,6 +189,7 @@ CONDAENV = "envs/environment.yml"
 localrules: all
 rule all:
     input:
+        "SAMPLES.txt",
         expand("quality_control/{sample}_03_{db}.fasta.gz",
             sample=config["samples"].keys(),
             db=config["contaminant_references"].keys()),
@@ -199,6 +200,16 @@ rule all:
         # expand("full_hmmscan/{sample}_hmmscan.txt",sample=config["samples"].keys()),
 
         "summary.html"
+
+
+localrules: print_samples
+rule print_samples:
+    output:
+        "SAMPLES.txt"
+    run:
+        with open(output[0], "w") as fh:
+            for k, v in SAMPLES.items():
+                print("%s: %s; %s" % (k, v["R1"], v["R2"]), file=fh)
 
 
 rule get_raw_fastq_qualities:
