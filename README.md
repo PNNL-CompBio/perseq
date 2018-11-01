@@ -31,7 +31,7 @@ cd perseq
 
 Download the HMM reference libraries from Zenodo:
 
-> https://zenodo.org/record/1466062
+> https://zenodo.org/record/1476722
 
 Locally, you should have the files:
 
@@ -154,6 +154,4 @@ the best hit to facilitate appropriate downstream filtering.
 
 The references are available at:
 
-> https://zenodo.org/record/1466062
-
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.1466062.svg)](https://doi.org/10.5281/zenodo.1466062)
+> https://zenodo.org/record/1476722
