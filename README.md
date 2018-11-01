@@ -6,7 +6,7 @@ PerSeq is an annotation workflow implemented in
 [Snakemake](https://snakemake.readthedocs.io/en/stable/) and is designed to
 be copied to your analysis directory. Dependencies are defined in
 ``envs/required.yaml`` and are installed at runtime via
-[Bioconda](https://bioconda.github.io/)(``snakemake --use-conda``) or
+[Bioconda](https://bioconda.github.io/) (``snakemake --use-conda``) or
 [Biocontainers](https://biocontainers.pro/) (``snakemake --use-singularity``).
 
 To report a bug or suggest changes, please use the
@@ -101,13 +101,15 @@ contaminant_references:
 Hits to contaminant references are detailed in
 `quality_control/<sample>_03_<contaminant key>.fasta.gz`.
 
+Quicker QC stats can be achieved by subsampling the FASTQ files using
+`seqtk sample`. To activate, add "subsample: value" to your `config.yml`
+file where value is the subsampled total. This step occurs prior to merging,
+and impacts all downstream analysis.
 
-Quicker QC stats can be achieved by subsampling the FASTQ files using `seqtk sample`. To activate, add
-"sumbsample: value" to the `config/config.yml` file where value is the number of sequences
-to subsample down to. This step occurs prior to merging, and impacts all downstream analysis.
- If the subsample value provided is negative, then subsampling will not occur.
+If the subsample value provided is negative, then subsampling will not occur.
 
-Counts for each stage and initial sequence quality are summarized in the HTML report:
+Counts for each stage and initial sequence quality are summarized in the HTML
+report:
 
 ![logo](resources/summary_table.png)
 
@@ -146,18 +148,12 @@ To get a quick overview of the Kaiju assignments, `perseq` compiles absolute and
 
 # Functional Annotation
 
-The blastx algorithm of DIAMOND is used to align nucleotide sequences to
-a KEGG protein reference database consisting of non-redundant, family
-level fungal eukaryotes and genus level prokaryotes
-(``--strand=both --evalue 0.00001``). Due to KEGG's licensing, we cannot
-distribute this reference database. The highest scoring alignment per
-sequence is used for functional annotation.
+Functions are assigned to the best hit per sequence to an HMM within dbCAN2,
+HAMAP, and TIGRFAMs. The initial e-value cutoff is 0.05 and is reported for
+the best hit to facilitate appropriate downstream filtering.
 
+The references are available at:
 
-# Updating References
+> https://zenodo.org/record/1466062
 
-To update the KO, pathway, and KEGG hierarchy reference data, execute:
-
-```
-./scripts/update_public_kegg_references.sh
-```
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.1466062.svg)](https://doi.org/10.5281/zenodo.1466062)
