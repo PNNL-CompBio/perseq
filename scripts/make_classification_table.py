@@ -21,8 +21,10 @@ def parse_hmm_hits(filename):
         reader = csv.reader(fh, delimiter="\t")
         for hit_id, hits in groupby(reader, key=lambda i: i[0]):
             for row in hits:
+                print(row)
                 # drops the HMM ID
                 annotation = row[4].split("~~~")[0:3]
+                print(annotation)
                 # product strings within the ACC can't have spaces
                 annotation[2] = annotation[2].replace("^", " ")
                 annotations[hit_id] = annotation.extend(row[6:8])
@@ -31,13 +33,11 @@ def parse_hmm_hits(filename):
 
 
 def parse_diamond_outputs(filenames):
-    hsps = expand("gene_catalog/diamond/{sample}.tsv")
-
     sequence_counts = defaultdict(Counter)
-    for f in filenames:
-        sample = os.path.basename(f).rstrip(".tsv")
-        with gzopen(f) as fh:
-            reader = csv.reader(f, delimiter="\t")
+    for filename in filenames:
+        sample = os.path.basename(filename).rstrip(".tsv")
+        with gzopen(filename) as fh:
+            reader = csv.reader(fh, delimiter="\t")
             for row in reader:
                 sequence_counts[row[1]].update([sample])
     return sequence_counts
