@@ -124,10 +124,10 @@ def get_samples_from_dir(config):
         logger.error("No samples were found for processing.")
         sys.exit(1)
     logger.info("Found %d samples for processing:\n" % len(samples))
-    samples_str = ""
-    for k, v in samples.items():
-        samples_str += "%s: %s; %s\n" % (k, v["R1"], v["R2"])
-    logger.info(samples_str)
+    # samples_str = ""
+    # for k, v in samples.items():
+    #     samples_str += "%s: %s; %s\n" % (k, v["R1"], v["R2"])
+    # logger.info(samples_str)
     # add sample into config
     config["samples"] = samples
 
