@@ -123,7 +123,7 @@ def get_samples_from_dir(config):
     if len(samples) == 0:
         logger.error("No samples were found for processing.")
         sys.exit(1)
-    logger.info("Found %d samples for processing:\n" % len(samples))
+    logger.info("Found %d samples for processing" % len(samples))
     # samples_str = ""
     # for k, v in samples.items():
     #     samples_str += "%s: %s; %s\n" % (k, v["R1"], v["R2"])
@@ -589,7 +589,7 @@ rule add_full_taxonomy:
         nodes = f"{KAIJUDB}/nodes.dmp",
         names = f"{KAIJUDB}/names.dmp"
     output:
-        "gene_catalog/kaiju/alignments.txt"
+        "gene_catalog/kaiju/alignments.tsv"
     conda:
         CONDAENV
     shell:
@@ -601,7 +601,7 @@ rule add_full_taxonomy:
 
 rule combine_sample_output:
     input:
-        kaiju = "gene_catalog/kaiju/alignments.txt",
+        kaiju = "gene_catalog/kaiju/alignments.tsv",
         # row[4].split("~~~") -> ec, gene, product.replace("^", " "), HMM ID
         hamap = "gene_catalog/HAMAP/alignments.tsv",
         # row[4].split("~~~") -> ec, enzyme class, enzyme class subfamily, HMM ID
