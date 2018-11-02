@@ -21,13 +21,12 @@ def parse_hmm_hits(filename):
         reader = csv.reader(fh, delimiter="\t")
         for hit_id, hits in groupby(reader, key=lambda i: i[0]):
             for row in hits:
-                print(row)
                 # drops the HMM ID
                 annotation = row[4].split("~~~")[0:3]
-                print(annotation)
                 # product strings within the ACC can't have spaces
                 annotation[2] = annotation[2].replace("^", " ")
-                annotations[hit_id] = annotation.extend(row[6:8])
+                annotation.extend(row[6:8])
+                annotations[hit_id] = annotation
                 break
     return annotations
 
@@ -75,7 +74,8 @@ def main(kaiju, hamap, dbcan, tigrfams, diamond, output):
         "dbcan_enzyme_class_subfamily",
         "dbcan_score",
         "dbcan_evalue",
-    ].extend(samples)
+    ]
+    output_header.extend(samples)
     # iterate over the kaiju hits and print table
     with gzopen(kaiju) as kaiju_hits, open(output, "w") as out_fh:
         print(*output_header, sep="\t", file=out_fh)
