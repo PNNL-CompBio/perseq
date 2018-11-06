@@ -108,6 +108,7 @@ def main(kaiju, hamap, dbcan, tigrfams, diamond, output):
                 tigrfams_ec,
                 tigrfams_gene,
                 tigrfams_product,
+                tigerfams_score,
                 tigrfams_evalue,
                 hamap_ec,
                 hamap_gene,
