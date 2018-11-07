@@ -136,9 +136,9 @@ def get_summaries():
     function = ["ec", "product"]
     taxonomy = ["phylum", "class", "order"]
     # code to generate the possible files
-    file_paths = expand("summaries/combined/{function}_{taxonomy}.txt",
+    file_paths = expand("summaries/{hmm}/combined/{function}_{taxonomy}.txt",
         function=function, taxonomy=taxonomy)
-    file_paths.extend(expand("summaries/function/{function}.txt",
+    file_paths.extend(expand("summaries/{hmm}/function/{function}.txt",
         function=function))
     file_paths.extend(expand("summaries/taxonomy/{taxonomy}.txt",
         taxonomy=taxonomy))
@@ -627,8 +627,8 @@ rule build_functional_table:
     output:
         "summaries/function/{function}.txt"
     params:
-        min_id = config.get("min_percent_id", 50),
-        min_len = config.get("min_alignment_length", 40)
+        min_evalue = config.get("min_evalue", 0.001),
+        min_score = config.get("min_score", 40)
     threads:
         1
     conda:
@@ -636,8 +636,8 @@ rule build_functional_table:
     shell:
         """
         python scripts/summarize_classifications.py \
-            --group-on {wildcards.function} --min-id {params.min_id} \
-            --min-len {params.min_len} {output} {input}
+            --group-on {wildcards.function} --min-evalue {params.min_evalue} \
+            --min-score {params.min_score} {output} {input}
         """
 
 
@@ -647,8 +647,8 @@ rule build_tax_table:
     output:
         "summaries/taxonomy/{tax_classification}.txt"
     params:
-        min_id = config.get("min_percent_id", 50),
-        min_len = config.get("min_alignment_length", 40)
+        min_evalue = config.get("min_evalue", 0.001),
+        min_score = config.get("min_score", 40)
     threads:
         1
     conda:
@@ -656,8 +656,8 @@ rule build_tax_table:
     shell:
         """
         python scripts/summarize_classifications.py \
-            --group-on kaiju_classification --min-len {params.min_len} \
-            --min-id {params.min_id} --tax-level {wildcards.tax_classification} \
+            --group-on kaiju_classification --min-evalue {params.min_evalue} \
+            --min-score {params.min_score} --tax-level {wildcards.tax_classification} \
             {output} {input}
         """
 
@@ -668,16 +668,16 @@ rule build_functional_and_tax_table:
     output:
         "summaries/combined/{function}_{tax_classification}.txt"
     params:
-        min_id = config.get("min_percent_id", 50),
-        min_len = config.get("min_alignment_length", 40)
+        min_evalue = config.get("min_evalue", 0.001),
+        min_score = config.get("min_score", 40)
     conda:
         CONDAENV
     shell:
         """
         python scripts/summarize_classifications.py \
             --group-on {wildcards.function} kaiju_classification \
-            --tax-level {wildcards.tax_classification} --min-id {params.min_id} \
-            --min-len {params.min_len} {output} {input}
+            --tax-level {wildcards.tax_classification} --min-evalue {params.min_evalue} \
+            --min-score {params.min_score} {output} {input}
         """
 
 
@@ -729,9 +729,8 @@ rule build_krona_plots:
 
 rule zip_attachments:
     input:
-        function = "summaries/function/ko.txt",
+        function = "summaries/function/ec.txt",
         taxonomy = "summaries/taxonomy/order.txt",
-        combined = "summaries/combined/ko_phylum.txt",
         krona_tax = "krona_plots/tax.krona.html",
         krona_ec = "krona_plots/ec.krona.html"
     output:

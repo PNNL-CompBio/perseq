@@ -89,17 +89,17 @@ def main(kaiju, hamap, dbcan, tigrfams, diamond, output):
                 kaiju_length = hit[3]
                 kaiju_taxonomy = hit[7]
             try:
-                tigrfams_ec, tigrfams_gene, tigrfams_product, tigrfams_score, tigrfams_evalue = tigrfams_hits[seq]
+                tigrfams_ec, tigrfams_gene, tigrfams_product, tigrfams_evalue, tigrfams_score = tigrfams_hits[seq]
             except KeyError:
-                tigrfams_ec, tigrfams_gene, tigrfams_product, tigrfams_score, tigrfams_evalue = [""] * 5
+                tigrfams_ec, tigrfams_gene, tigrfams_product, tigrfams_evalue, tigrfams_score = [""] * 5
             try:
-                hamap_ec, hamap_gene, hamap_product, hamap_score, hamap_evalue = hamap_hits[seq]
+                hamap_ec, hamap_gene, hamap_product, hamap_evalue, hamap_score = hamap_hits[seq]
             except KeyError:
-                hamap_ec, hamap_gene, hamap_product, hamap_score, hamap_evalue = [""] * 5
+                hamap_ec, hamap_gene, hamap_product, hamap_evalue, hamap_score = [""] * 5
             try:
-                dbcan_ec, dbcan_enzyme_class, dbcan_enzyme_class_subfamily, dbcan_score, dbcan_evalue = dbcan_hits[seq]
+                dbcan_ec, dbcan_enzyme_class, dbcan_enzyme_class_subfamily, dbcan_evalue, dbcan_score = dbcan_hits[seq]
             except KeyError:
-                dbcan_ec, dbcan_enzyme_class, dbcan_enzyme_class_subfamily, dbcan_score, dbcan_evalue = [""] * 5
+                dbcan_ec, dbcan_enzyme_class, dbcan_enzyme_class_subfamily, dbcan_evalue, dbcan_score = [""] * 5
             hit_counts = [sequence_counts[seq][sample] for sample in samples]
             print(
                 seq,

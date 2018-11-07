@@ -22,50 +22,52 @@ TAX_LEVELS = {
 FUNCTION_COLS = ["ko", "ec", "product"]
 
 
-def parse_kegg_json(json_file):
-    kegg_dict = dict()
-    with gzopen(json_file) as filehandle:
-        json_class = json.load(filehandle)
-        for root in json_class["children"]:
-            for level_1 in root["children"]:
-                for level_2 in level_1["children"]:
-                    try:
-                        for level_3 in level_2["children"]:
-                            ko = "ko:" + level_3["name"].partition(" ")[0]
-                            if ko in kegg_dict:
-                                kegg_dict[ko]["level_1"] += ";" + root["name"]
-                                kegg_dict[ko]["level_2"] += ";" + level_1["name"]
-                                kegg_dict[ko]["level_3"] += ";" + level_2["name"]
-                            else:
-                                kegg_dict[ko] = {
-                                    "level_1": root["name"],
-                                    "level_2": level_1["name"],
-                                    "level_3": level_2["name"],
-                                }
-                    except:
-                        ko = "ko:K" + level_2["name"].partition(" ")[0]
-                        if ko in kegg_dict:
-                            kegg_dict[ko]["level_1"] += ";" + root["name"]
-                            kegg_dict[ko]["level_2"] += ";" + level_1["name"]
-                            kegg_dict[ko]["level_3"] += ";" + level_2["name"]
-                        else:
-                            kegg_dict[ko] = {
-                                "level_1": root["name"],
-                                "level_2": level_1["name"],
-                                "level_3": level_2["name"],
-                            }
-    df = pd.DataFrame.from_dict(kegg_dict, orient="index").reset_index()
-    df = df.rename(columns={"index": "ko"})
-    return df[["ko", "level_1", "level_2", "level_3"]]
+# def parse_kegg_json(json_file):
+#     kegg_dict = dict()
+#     with gzopen(json_file) as filehandle:
+#         json_class = json.load(filehandle)
+#         for root in json_class["children"]:
+#             for level_1 in root["children"]:
+#                 for level_2 in level_1["children"]:
+#                     try:
+#                         for level_3 in level_2["children"]:
+#                             ko = "ko:" + level_3["name"].partition(" ")[0]
+#                             if ko in kegg_dict:
+#                                 kegg_dict[ko]["level_1"] += ";" + root["name"]
+#                                 kegg_dict[ko]["level_2"] += ";" + level_1["name"]
+#                                 kegg_dict[ko]["level_3"] += ";" + level_2["name"]
+#                             else:
+#                                 kegg_dict[ko] = {
+#                                     "level_1": root["name"],
+#                                     "level_2": level_1["name"],
+#                                     "level_3": level_2["name"],
+#                                 }
+#                     except:
+#                         ko = "ko:K" + level_2["name"].partition(" ")[0]
+#                         if ko in kegg_dict:
+#                             kegg_dict[ko]["level_1"] += ";" + root["name"]
+#                             kegg_dict[ko]["level_2"] += ";" + level_1["name"]
+#                             kegg_dict[ko]["level_3"] += ";" + level_2["name"]
+#                         else:
+#                             kegg_dict[ko] = {
+#                                 "level_1": root["name"],
+#                                 "level_2": level_1["name"],
+#                                 "level_3": level_2["name"],
+#                             }
+#     df = pd.DataFrame.from_dict(kegg_dict, orient="index").reset_index()
+#     df = df.rename(columns={"index": "ko"})
+#     return df[["ko", "level_1", "level_2", "level_3"]]
 
 
 def df_from_classifications(tbl_path, group_on, split_idx, min_perc_id, min_len):
-    metric_cols = ["aa_percent_id", "aa_alignment_length", "kaiju_alignment_length"]
-    sample = os.path.basename(tbl_path).partition("_classifications.txt")[0]
+    #metric_cols = ["aa_percent_id", "aa_alignment_length", "kaiju_alignment_length"]
+    #sample = os.path.basename(tbl_path).partition("_classifications.txt")[0]
     # grab columns of interest
     logging.debug(f"Parsing {tbl_path}")
     df = pd.read_table(tbl_path, usecols=group_on + metric_cols)
     logging.debug(f"Initial table size: {len(df)}")
+    df = df.query("kaiju_length != 0")
+    logging.debug(f"After filtering table size: {len(df)}")
     # functional assignment filters
     if any(FUNCTION_COLS) in group_on:
         df = df[
@@ -88,6 +90,9 @@ def df_from_classifications(tbl_path, group_on, split_idx, min_perc_id, min_len)
 
 
 def main(json_file, output, tables, tax_level, min_perc_id, min_len, group_on):
+    hmm_libs=["tigrfams","hamap","dbcan","kaiju"]
+    hmms = [df.filter(like=hmm_lib).columns.values.tolist() for hmm_lib in hmm_libs]
+    samples = df.filter(regex="[0-9]+").columns.values.tolist()
     tax_split_level = TAX_LEVELS[tax_level]
     sample_df = None
     logging.debug(f"Preparing to parse {len(tables)} tables")
@@ -135,22 +140,22 @@ if __name__ == "__main__":
         help="tax level to show",
     )
     parser.add_argument(
-        "--min-id",
+        "--min-evalue",
         type=int,
-        default=50,
-        help="lowest percent ID to retain per sequence per sample",
+        default=0.001,
+        help="lowest evalue to retain per sequence per sample",
     )
     parser.add_argument(
-        "--min-len",
+        "--min-score",
         type=int,
         default=40,
-        help="lowest alignment length to retain per sequence per sample",
+        help="lowest hmmsearch score to retain per sequence per sample",
     )
     parser.add_argument(
         "--group-on",
         # choices=["kaiju_classification", "ko", "ec", "product"],
         nargs="+",
-        default="kaiju_classification",
+        default="kaiju_taxonomy",
         help="cluster tables on taxonomy and/or function; headers must match in tables",
     )
     parser.add_argument(
