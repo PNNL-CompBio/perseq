@@ -133,13 +133,13 @@ def get_samples_from_dir(config):
 
 
 def get_summaries():
-    function = ["ec", "product"]
+    hmm = ["tigrfams","hamap","dbcan"]
     taxonomy = ["phylum", "class", "order"]
     # code to generate the possible files
-    file_paths = expand("summaries/{hmm}/combined/{function}_{taxonomy}.txt",
-        function=function, taxonomy=taxonomy)
-    file_paths.extend(expand("summaries/{hmm}/function/{function}.txt",
-        function=function))
+    file_paths = expand("summaries/combined/{hmm}_{taxonomy}.txt",
+        hmm=hmm, taxonomy=taxonomy)
+    file_paths.extend(expand("summaries/hmms_summary/{hmm}_summary.txt",
+        hmm=hmm))
     file_paths.extend(expand("summaries/taxonomy/{taxonomy}.txt",
         taxonomy=taxonomy))
     return file_paths
@@ -621,14 +621,15 @@ rule combine_sample_output:
         """
 
 
-rule build_functional_table:
+rule build_hmms_table:
     input:
         "gene_catalog/annotations.txt"
     output:
-        "summaries/function/{function}.txt"
+        "summaries/hmms_summary/{hmm}_summary.txt"
     params:
         min_evalue = config.get("min_evalue", 0.001),
-        min_score = config.get("min_score", 40)
+        min_score = config.get("min_score", 40),
+        min_len = config.get("min_len",50)
     threads:
         1
     conda:
@@ -636,8 +637,9 @@ rule build_functional_table:
     shell:
         """
         python scripts/summarize_classifications.py \
-            --group-on {wildcards.function} --min-evalue {params.min_evalue} \
-            --min-score {params.min_score} {output} {input}
+            --group-on {wildcards.hmm} --min-evalue {params.min_evalue} \
+            --min-score {params.min_score} --min-len {params.min_len} {output} \
+            {input}
         """
 
 
@@ -648,7 +650,8 @@ rule build_tax_table:
         "summaries/taxonomy/{tax_classification}.txt"
     params:
         min_evalue = config.get("min_evalue", 0.001),
-        min_score = config.get("min_score", 40)
+        min_score = config.get("min_score", 40),
+        min_len = config.get("min_len",50)
     threads:
         1
     conda:
@@ -657,30 +660,31 @@ rule build_tax_table:
         """
         python scripts/summarize_classifications.py \
             --group-on kaiju_classification --min-evalue {params.min_evalue} \
-            --min-score {params.min_score} --tax-level {wildcards.tax_classification} \
-            {output} {input}
+            --min-score {params.min_score} --min-len {params.min_len} \
+            --tax-level {wildcards.tax_classification} {output} {input}
         """
 
 
-rule build_functional_and_tax_table:
+rule build_hmm_and_tax_table:
     input:
         "gene_catalog/annotations.txt"
     output:
-        "summaries/combined/{function}_{tax_classification}.txt"
+        "summaries/combined/{hmm}_{tax_classification}.txt"
     params:
         min_evalue = config.get("min_evalue", 0.001),
-        min_score = config.get("min_score", 40)
+        min_score = config.get("min_score", 40),
+        min_len = config.get("min_len",50)
     conda:
         CONDAENV
     shell:
         """
         python scripts/summarize_classifications.py \
-            --group-on {wildcards.function} kaiju_classification \
+            --group-on {wildcards.hmm} kaiju_classification \
             --tax-level {wildcards.tax_classification} --min-evalue {params.min_evalue} \
-            --min-score {params.min_score} {output} {input}
+            --min-score {params.min_score}--min-len {params.min_len} {output} {input}
         """
 
-
+## TODO fix this rule
 rule build_krona_ec_input:
     input:
         ec_file = "summaries/function/ec.txt",
