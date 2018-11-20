@@ -333,7 +333,7 @@ def main(
 PerSeq_ - Per sequence functional and taxonomic assignments
 =============================================================
 
-.. _PerSeq: https://github.com/pnnl
+.. _PerSeq: https://github.com/PNNL-CompBio/perseq
 
 
 .. contents::
