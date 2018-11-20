@@ -133,7 +133,7 @@ def get_samples_from_dir(config):
 
 
 def get_summaries():
-    hmm = ["tigrfams","hamap","dbcan"]
+    hmm = ["TIGRFAMs","HAMAP","dbCAN"]
     taxonomy = ["phylum", "class", "order"]
     # code to generate the possible files
     file_paths = expand("summaries/combined/{hmm}_{taxonomy}.txt",
@@ -171,7 +171,7 @@ def get_hmm(wildcards):
         hmm = config["tigrfams_hmm"]
     else:
         logger.error("Unsure which HMM is currently selected.")
-        sys.exit(status=1)
+        sys.exit(1)
     return dict(
                 hmm=hmm,
                 h3f="%s.h3f" % hmm,
@@ -506,7 +506,7 @@ rule run_hmmsearch:
         unpack(get_hmm),
         faa = "gene_catalog/tmp/clustered_genes_{chunk}.faa"
     output:
-        hits = temp("gene_catalog/{hmm}/unsorted_alignments_{chunk}.txt")
+        hits = temp("gene_catalog/hmms/{hmm}/unsorted_alignments_{chunk}.txt")
     params:
         evalue = config.get("evalue", 0.05),
         null = os.devnull
@@ -525,10 +525,10 @@ rule sort_hmm_hits:
     # Remove the header, remove spacing, replace spaces with tabs, sort by
     # query then score. Best hit will be first of group.
     input:
-        hits = dynamic("gene_catalog/{hmm}/unsorted_alignments_{chunk}.txt")
+        hits = dynamic("gene_catalog/hmms/{hmm}/unsorted_alignments_{chunk}.txt")
     output:
         # column[4] contains annotation data
-        hits = "gene_catalog/{hmm}/alignments.tsv"
+        hits = "gene_catalog/hmms/{hmm}/alignments.tsv"
     conda:
         CONDAENV
     shell:
@@ -536,7 +536,7 @@ rule sort_hmm_hits:
         cat {input.hits} | \
             grep -v '^#' | \
             tr -s ' ' | \
-            tr ' ' '\t' | \
+            tr ' ' '\\t' | \
             sort --buffer-size=50% -k1,1 -k8,8nr > {output.hits}
         """
 
@@ -603,11 +603,11 @@ rule combine_sample_output:
     input:
         kaiju = "gene_catalog/kaiju/alignments.tsv",
         # row[4].split("~~~") -> ec, gene, product.replace("^", " "), HMM ID
-        hamap = "gene_catalog/HAMAP/alignments.tsv",
+        hamap = "gene_catalog/hmms/HAMAP/alignments.tsv",
         # row[4].split("~~~") -> ec, enzyme class, enzyme class subfamily, HMM ID
-        dbcan = "gene_catalog/dbCAN/alignments.tsv",
+        dbcan = "gene_catalog/hmms/dbCAN/alignments.tsv",
         # row[4].split("~~~") -> ec, gene, product.replace("^", " "), HMM ID
-        tigrfams = "gene_catalog/TIGRFAMs/alignments.tsv",
+        tigrfams = "gene_catalog/hmms/TIGRFAMs/alignments.tsv",
         hsps = expand("gene_catalog/diamond/{sample}.tsv", sample=config["samples"].keys())
     output:
         "gene_catalog/annotations.txt"
@@ -687,7 +687,7 @@ rule build_hmm_and_tax_table:
 ## TODO fix this rule
 rule build_krona_ec_input:
     input:
-        ec_file = "summaries/function/ec.txt",
+        ec_file = "summaries/hmms_summary/TIGRFAMs_summary.txt",
         ec_converter = config["enzyme_classes"],
         ec_dat_file = config["enzyme_nomenclature"]
     output:
@@ -731,18 +731,18 @@ rule build_krona_plots:
         """
 
 
-rule zip_attachments:
-    input:
-        function = "summaries/function/ec.txt",
-        taxonomy = "summaries/taxonomy/order.txt",
-        krona_tax = "krona_plots/tax.krona.html",
-        krona_ec = "krona_plots/ec.krona.html"
-    output:
-        temp("perseq_downloads.zip")
-    shell:
-        """
-        zip {output} {input.function} {input.taxonomy} {input.combined}
-        """
+# rule zip_attachments:
+#     input:
+#         function = "summaries/function/ec.txt",
+#         taxonomy = "summaries/taxonomy/order.txt",
+#         krona_tax = "krona_plots/tax.krona.html",
+#         krona_ec = "krona_plots/ec.krona.html"
+#     output:
+#         temp("perseq_downloads.zip")
+#     shell:
+#         """
+#         zip {output} {input.function} {input.taxonomy} {input.combined}
+#         """
 
 
 rule build_report:
