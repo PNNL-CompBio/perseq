@@ -366,7 +366,7 @@ rule run_prodigal:
     input:
         "quality_control/{sample}_03_clean.fasta.gz"
     output:
-        "gene_catalog/prodigal/{sample}.faa"
+        temp("gene_catalog/prodigal/{sample}_multi.faa")
     params:
         null = os.devnull
     conda:
@@ -375,6 +375,18 @@ rule run_prodigal:
         """
         gunzip -c {input} | prodigal -q -p meta -a {output} -o {params.null}
         """
+
+rule fix_prodigal_multi:
+    input:
+        faa = "gene_catalog/prodigal/{sample}_multi.faa"
+    output:
+        faa = "gene_catalog/prodigal/{sample}.faa"
+    run:
+        with open(input.faa) as in_faa, open(output.faa, "w") as out_faa:
+            for name, seq, _ in readfx(in_faa):
+                if name.endswith("_2"):
+                    continue
+                print(">%s" % name, seq.replace("*", ""), sep="\n", file=out_faa)
 
 
 localrules: aggregate_all_genes
