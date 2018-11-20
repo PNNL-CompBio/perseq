@@ -384,7 +384,7 @@ rule fix_prodigal_multi:
     run:
         with open(input.faa) as in_faa, open(output.faa, "w") as out_faa:
             for name, seq, _ in readfx(in_faa):
-                if name.endswith("_2"):
+                if not name.endswith("_1"):
                     continue
                 print(">%s" % name, seq.replace("*", ""), sep="\n", file=out_faa)
 
@@ -406,7 +406,7 @@ rule aggregate_all_genes:
                 with open(f) as fh:
                     for name, seq, _ in readfx(fh):
                         # per sequence, choose first only
-                        if name.endswith("_2"):
+                        if not name.endswith("_1"):
                             continue
                         print(">%d" % name_index, seq.replace("*", ""), sep="\n", file=out_faa)
                         name_index += 1
