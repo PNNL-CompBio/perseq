@@ -48,11 +48,11 @@ def main(kaiju, hamap, dbcan, tigrfams, diamond, output):
     sequence_counts = parse_diamond_outputs(diamond)
 
     # ECs may be a comma delimited list
-    # sequence_id -> [ec, gene, product, hmm_id, score, evalue]
+    # sequence_id -> [ec, gene, product, hmm_id, evalue, score]
     hamap_hits = parse_hmm_hits(hamap)
-    # sequence_id -> [ec, enzyme class, enzyme class subfamily, hmm_id, score, evalue]
+    # sequence_id -> [ec, enzyme class, enzyme class subfamily, hmm_id, evalue, score]
     dbcan_hits = parse_hmm_hits(dbcan)
-    # sequence_id -> [ec, gene, product, hmm_id, score, evalue]
+    # sequence_id -> [ec, gene, product, hmm_id, evalue, score]
     tigrfams_hits = parse_hmm_hits(tigrfams)
 
     output_header = [
@@ -108,7 +108,7 @@ def main(kaiju, hamap, dbcan, tigrfams, diamond, output):
                 tigrfams_ec,
                 tigrfams_gene,
                 tigrfams_product,
-                tigerfams_score,
+                tigrfams_score,
                 tigrfams_evalue,
                 hamap_ec,
                 hamap_gene,
