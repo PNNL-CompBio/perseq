@@ -394,7 +394,7 @@ rule aggregate_all_genes:
                 with open(f) as fh:
                     for name, seq, _ in readfx(fh):
                         # per sequence, choose first only
-                        if name.endswith("_2"):
+                        if not name.endswith("_1"):
                             continue
                         print(">%d" % name_index, seq.replace("*", ""), sep="\n", file=out_faa)
                         name_index += 1
@@ -481,7 +481,7 @@ rule split_fasta:
     input:
         fasta = "gene_catalog/clustered_genes.faa"
     output:
-        temp((dynamic("gene_catalog/tmp/clustered_genes_{chunk}.faa")))
+        dynamic("gene_catalog/tmp/clustered_genes_{chunk}.faa")
     params:
         # consider a smaller chunk size
         chunk_size = config.get("chunk_size", 1000000)
@@ -684,7 +684,7 @@ rule build_hmm_and_tax_table:
             --min-score {params.min_score}--min-len {params.min_len} {output} {input}
         """
 
-## TODO fix this rule
+
 rule build_krona_ec_input:
     input:
         ec_file = "summaries/hmms_summary/TIGRFAMs_summary.txt",
@@ -731,18 +731,20 @@ rule build_krona_plots:
         """
 
 
-# rule zip_attachments:
-#     input:
-#         function = "summaries/function/ec.txt",
-#         taxonomy = "summaries/taxonomy/order.txt",
-#         krona_tax = "krona_plots/tax.krona.html",
-#         krona_ec = "krona_plots/ec.krona.html"
-#     output:
-#         temp("perseq_downloads.zip")
-#     shell:
-#         """
-#         zip {output} {input.function} {input.taxonomy} {input.combined}
-#         """
+rule zip_attachments:
+    input:
+        function = "summaries/hmms_summary/TIGRFAMs_summary.txt",
+        taxonomy = "summaries/taxonomy/order.txt",
+        combined = "summaries/combined/TIGRFAMs_order.txt",
+        krona_tax = "krona_plots/tax.krona.html",
+        krona_ec = "krona_plots/ec.krona.html"
+    output:
+        temp("perseq_downloads.zip")
+    shell:
+        """
+        zip {output} {input.function} {input.taxonomy} {input.combined} \
+        {input.krona_tax} {input.krona_ec}
+        """
 
 
 rule build_report:
