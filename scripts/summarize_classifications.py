@@ -192,7 +192,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--min-len",
-        type=int,
+        type=float,
         default=0.001,
         help="minimum kaiju alignment length to retain",
     )
