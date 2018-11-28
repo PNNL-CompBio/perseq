@@ -681,7 +681,7 @@ rule build_hmm_and_tax_table:
         python scripts/summarize_classifications.py \
             --group-on {wildcards.hmm} kaiju_classification \
             --tax-level {wildcards.tax_classification} --min-evalue {params.min_evalue} \
-            --min-score {params.min_score}--min-len {params.min_len} {output} {input}
+            --min-score {params.min_score} --min-len {params.min_len} {output} {input}
         """
 
 
