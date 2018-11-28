@@ -621,9 +621,22 @@ rule combine_sample_output:
         """
 
 
+rule remove_empty_annotations:
+    input:
+        annotations = "gene_catalog/annotations.txt"
+    output:
+        cleaned = "gene_catalog/annotations_cleaned.txt"
+    run:
+        with open(input.annotations) as file,open(output.cleaned,"w") as output:
+            next(file)
+            for line in file:
+                toks = line.strip("\r\n").split("\t")
+                if not all(s=='' for s in toks[4:12]):
+                    print(line, end="\n", file=output)
+
 rule build_hmms_table:
     input:
-        "gene_catalog/annotations.txt"
+        "gene_catalog/annotations_cleaned.txt"
     output:
         "summaries/hmms_summary/{hmm}_summary.txt"
     params:
@@ -645,7 +658,7 @@ rule build_hmms_table:
 
 rule build_tax_table:
     input:
-        "gene_catalog/annotations.txt"
+        "gene_catalog/annotations_cleaned.txt"
     output:
         "summaries/taxonomy/{tax_classification}.txt"
     params:
@@ -667,7 +680,7 @@ rule build_tax_table:
 
 rule build_hmm_and_tax_table:
     input:
-        "gene_catalog/annotations.txt"
+        "gene_catalog/annotations_cleaned.txt"
     output:
         "summaries/combined/{hmm}_{tax_classification}.txt"
     params:
@@ -749,7 +762,7 @@ rule zip_attachments:
 
 rule build_report:
     input:
-        annotations = "gene_catalog/annotations.txt",
+        annotations = "gene_catalog/annotations_cleaned.txt",
         ee_stats = expand("logs/{sample}_{idx}_eestats.txt", sample=config["samples"].keys(), idx=["R1", "R2"]),
         clean_length_logs = expand("logs/{sample}_03_clean_readlengths.txt", sample=config["samples"].keys()),
         unique_length_logs = expand("logs/{sample}_02_unique_readlengths.txt", sample=config["samples"].keys()),
