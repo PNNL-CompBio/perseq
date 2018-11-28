@@ -1,4 +1,4 @@
-import argparse
+ import argparse
 import csv
 import os
 from collections import Counter, defaultdict
@@ -45,16 +45,17 @@ def get_sample_order(lst):
     return [i[0] for i in sorted(lst, key=lambda x: x[1], reverse=True)]
 
 
-def build_taxonomy_plot(txt, value_cols, height=900):
+def build_taxonomy_plot(txt, height=900):
     df = pd.read_table(txt)
+    samples = df.filter(regex="[0-9]+").columns.values.tolist()
     levels = ["kingdom", "phylum", "class", "order"]
     df[levels] = df["taxonomy_order"].str.split(";", expand=True)
     hierarchy = ["phylum", "class", "order"]
     df[hierarchy] = df[hierarchy].fillna("NA")
-    df[value_cols] = df[value_cols].fillna(0)
+    df[samples] = df[samples].fillna(0)
     df = df[hierarchy + value_cols]
     dfs = relatively.get_dfs_across_hierarchy(
-        df, hierarchy, value_cols, reorder="shannon", dependent="; "
+        df, hierarchy, samples, reorder="shannon", dependent="; "
     )
     fig = relatively.get_abundance_figure_from_dfs(
         dfs, hierarchy, "Assigned Taxonomy Per Sample", height=height
@@ -66,11 +67,47 @@ def get_sample_name(path, key):
     return [os.path.basename(item).partition(key)[0] for item in path]
 
 
+# def parse_classifications_for_taxonomy(path):
+#     """
+#     SN1035:381:h3cv7bcx2:2:2202:3165:73750	-1	-1
+#     SN1035:381:h3cv7bcx2:1:1105:7280:88523	67.5	40				111	Archaea; Thaumarchaeota; Nitrososphaerales; Nitrososphaeria; Nitrososphaeraceae; Candidatus Nitrosocosmicus; Candidatus Nitrocosmicus oleophilus;
+#     SN1035:381:h3cv7bcx2:1:1204:20140:83036	78.4	37	ko:K00820	glmS, GFPT; glucosamine---fructose-6-phosphate aminotransferase (isomerizing)	2.6.1.16	229	Bacteria; Actinobacteria; NA; NA; NA; NA; Actinobacteria bacterium 13_1_40CM_66_12;
+#     """
+#     logger.info("Parsing {}".format(path))
+#     # hardcoded tax levels :(
+#     taxonomy_level_counter = {
+#         "order": Counter(),
+#         "class": Counter(),
+#         "phylum": Counter(),
+#     }
+#     taxonomy_counter = Counter()
+#     summary_counter = Counter()
+#     with open(path) as fh:
+#         # skip the header
+#         next(fh)
+#         for i, line in enumerate(fh, start=1):
+#             toks = line.strip("\r\n").split("\t")
+#             if toks[3]:
+#                 summary_counter.update(["Assigned Function"])
+#                 if toks[7]:
+#                     summary_counter.update(["Assigned Both"])
+#             if toks[7]:
+#                 taxonomy_counter.update([toks[7]])
+#                 taxonomy = [j.strip() for j in toks[7].split(";")]
+#                 taxonomy_level_counter["order"].update([taxonomy[3]])
+#                 taxonomy_level_counter["class"].update([taxonomy[2]])
+#                 taxonomy_level_counter["phylum"].update([taxonomy[1]])
+#                 summary_counter.update(["Assigned Taxonomy"])
+#     return dict(
+#         taxonomy_level_counter=taxonomy_level_counter,
+#         summary_counter=summary_counter
+#     )
+
 def parse_classifications_for_taxonomy(path):
     """
-    SN1035:381:h3cv7bcx2:2:2202:3165:73750	-1	-1
-    SN1035:381:h3cv7bcx2:1:1105:7280:88523	67.5	40				111	Archaea; Thaumarchaeota; Nitrososphaerales; Nitrososphaeria; Nitrososphaeraceae; Candidatus Nitrosocosmicus; Candidatus Nitrocosmicus oleophilus;
-    SN1035:381:h3cv7bcx2:1:1204:20140:83036	78.4	37	ko:K00820	glmS, GFPT; glucosamine---fructose-6-phosphate aminotransferase (isomerizing)	2.6.1.16	229	Bacteria; Actinobacteria; NA; NA; NA; NA; Actinobacteria bacterium 13_1_40CM_66_12;
+    37056   274     Bacteria; Bacteroidetes; Sphingobacteriia; Sphingobacteriales; NA; NA; Sphingobacteriales bacterium UTBCD1;     3.4.21.92       clpP    ATP-dependent Clp endopeptidase proteolytic subun
+    75331   0                                                                                                                                       0       0       0       0       0       0       0       0
+
     """
     logger.info("Parsing {}".format(path))
     # hardcoded tax levels :(
@@ -86,32 +123,37 @@ def parse_classifications_for_taxonomy(path):
         next(fh)
         for i, line in enumerate(fh, start=1):
             toks = line.strip("\r\n").split("\t")
-            if toks[3]:
-                summary_counter.update(["Assigned Function"])
-                if toks[7]:
-                    summary_counter.update(["Assigned Both"])
-            if toks[7]:
+            if toks[2]:
                 taxonomy_counter.update([toks[7]])
                 taxonomy = [j.strip() for j in toks[7].split(";")]
                 taxonomy_level_counter["order"].update([taxonomy[3]])
                 taxonomy_level_counter["class"].update([taxonomy[2]])
                 taxonomy_level_counter["phylum"].update([taxonomy[1]])
                 summary_counter.update(["Assigned Taxonomy"])
+                if not all(s=='' for s in toks[4:12]):
+                    summary_counter.update(["Assigned Both"])
+            if not all(s=='' for s in toks[4:12]):
+                summary_counter.update(["Assigned Function"])
+
     return dict(
         taxonomy_level_counter=taxonomy_level_counter,
         summary_counter=summary_counter
     )
 
-
 def compile_summary_df(classification_tables, tax_levels=["phylum", "class", "order"]):
     """
     Reads in multiple sample alignments from diamond in a given directory and merges them into
-    a single pandas.DataFrame. It returns a pandas dataframe for each of th
+    a single pandas.DataFrame. It returns a pandas dataframe for each of
     phylum that is ready to plug into the processing function. Also returns total counts
     which is necessary to calculate the percentage of total that is being represented
     """
     dfs = {}
     classifications_per_sample = {}
+    cols = df.filter(regex="[A-Z]+").columns.values.tolist()
+    samples = df.filter(regex="[0-9]+").columns.values.tolist()
+    for sample in samples:
+        df[cols]
+
     for classification_table in classification_tables:
         sample = get_sample(classification_table, "_classifications.txt")
         parsed_taxonomy = parse_classifications_for_taxonomy(classification_table)
@@ -311,14 +353,14 @@ def main(
     clean_logs = glob(clean_logs)
     unique_logs = glob(unique_logs)
     merge_logs = glob(merge_logs)
-    summary_tables = glob(summary_tables)
+    summary_table = summary_tables
     r1_quality_files = glob(r1_quality_files)
-    classifications_per_sample = compile_summary_df(summary_tables)
-    value_cols = get_sample_name(summary_tables, "_classifications.txt")
-    fig = build_taxonomy_plot(taxonomy_table, value_cols)
+    #classifications_per_sample = compile_summary_df(summary_tables)
+    #value_cols = get_sample_name(summary_tables, "_classifications.txt")
+    fig = build_taxonomy_plot(taxonomy_table)
     plots = offline.plot(fig, **PLOTLY_PARAMS)
     html_tbl = parse_log_files(
-        merge_logs, unique_logs, clean_logs, classifications_per_sample
+        merge_logs, unique_logs, clean_logs, summary_table
     )
     quality_plot = build_quality_plot(r1_quality_files)
     conda_env = get_conda_env_str(conda_env)
@@ -333,7 +375,7 @@ def main(
 PerSeq_ - Per sequence functional and taxonomic assignments
 =============================================================
 
-.. _PerSeq: https://github.com/pnnl
+.. _PerSeq: https://github.com/PNNL-CompBio/perseq
 
 
 .. contents::
