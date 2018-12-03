@@ -136,12 +136,12 @@ def get_summaries():
     hmm = ["TIGRFAMs","HAMAP","dbCAN"]
     taxonomy = ["phylum", "class", "order"]
     # code to generate the possible files
-    file_paths = expand("summaries/combined/{hmm}_{taxonomy}.txt",
-        hmm=hmm, taxonomy=taxonomy)
+    file_paths = expand("summaries/combined/{hmm}_{tax_classification}.txt",
+        hmm=hmm, tax_classification=taxonomy)
     file_paths.extend(expand("summaries/hmms_summary/{hmm}_summary.txt",
         hmm=hmm))
-    file_paths.extend(expand("summaries/taxonomy/{taxonomy}.txt",
-        taxonomy=taxonomy))
+    file_paths.extend(expand("summaries/taxonomy/{tax_classification}.txt",
+        tax_classification=taxonomy))
     return file_paths
 
 
@@ -627,12 +627,13 @@ rule remove_empty_annotations:
     output:
         cleaned = "gene_catalog/annotations_cleaned.txt"
     run:
-        with open(input.annotations) as file,open(output.cleaned,"w") as output:
-            next(file)
+        with open(input.annotations) as file, open(output.cleaned,"w") as output:
+            header = next(file)
+            print(header.strip("\n"), file=output)
             for line in file:
                 toks = line.strip("\r\n").split("\t")
                 if not all(s=='' for s in toks[4:12]):
-                    print(line, end="\n", file=output)
+                    print(line.strip("\n"), file=output)
 
 rule build_hmms_table:
     input:
@@ -672,7 +673,7 @@ rule build_tax_table:
     shell:
         """
         python scripts/summarize_classifications.py \
-            --group-on kaiju_classification --min-evalue {params.min_evalue} \
+            --group-on kaiju_taxonomy --min-evalue {params.min_evalue} \
             --min-score {params.min_score} --min-len {params.min_len} \
             --tax-level {wildcards.tax_classification} {output} {input}
         """
@@ -692,7 +693,7 @@ rule build_hmm_and_tax_table:
     shell:
         """
         python scripts/summarize_classifications.py \
-            --group-on {wildcards.hmm} kaiju_classification \
+            --group-on {wildcards.hmm} kaiju_taxonomy \
             --tax-level {wildcards.tax_classification} --min-evalue {params.min_evalue} \
             --min-score {params.min_score} --min-len {params.min_len} {output} {input}
         """
@@ -752,10 +753,12 @@ rule zip_attachments:
         krona_tax = "krona_plots/tax.krona.html",
         krona_ec = "krona_plots/ec.krona.html"
     output:
-        temp("perseq_downloads.zip")
+        temp("perseq_downloads.tar.gz")
+    conda:
+        CONDAENV
     shell:
         """
-        zip {output} {input.function} {input.taxonomy} {input.combined} \
+        tar -czf {output} {input.function} {input.taxonomy} {input.combined} \
         {input.krona_tax} {input.krona_ec}
         """
 
@@ -769,7 +772,7 @@ rule build_report:
         clean_logs = expand("logs/{sample}_decontamination.log", sample=config["samples"].keys()),
         merge_logs = expand("logs/{sample}_merge_sequences.log", sample=config["samples"].keys()),
         taxonomy = "summaries/taxonomy/order.txt",
-        zipped_files = "perseq_downloads.zip"
+        zipped_files = "perseq_downloads.tar.gz"
     output:
         "summary.html"
     conda:

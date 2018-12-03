@@ -57,25 +57,28 @@ FUNCTION_COLS = {
 #     logging.debug(f"Final table length: {len(df)}")
 #     return df
 
-def single_output(df,tax_level,samples,min_evlaue,min_score,min_len,group_on,output):
+def single_output(df,tax_level,samples,min_evalue,min_score,min_len,group_on,output):
     split_idx = TAX_LEVELS[tax_level]
     # group_one=["tigrfams","hamap","dbcan","kaiju"]
-    # for item in group_one:
-    hmm_cols = df.filter(like=group_on[0]).columns.values.tolist()
-    #TODO might not need
-    test_df = df[hmm_cols+samples].copy()
-    if "kaiju" in item:
+    # for item in group_on
+    #test_df.head()
+    if "kaiju_taxonomy" in group_on:
+        hmm_cols = df.filter(like="kaiju").columns.values.tolist()
+        test_df = df[hmm_cols+samples].copy()
         test_df = test_df[(df["kaiju_length"] > min_len)]
-        test_df["kaiju_taxonomy"] = df["kaiju_taxonomy"].apply(lambda x: "; ".join(x.split("; ", split_idx)[0:split_idx]))
+        test_df["kaiju_taxonomy"] = df["kaiju_taxonomy"].apply(lambda x: "; ".join(str(x).split("; ", split_idx)[0:split_idx]))
         test_df = test_df.drop(columns=["kaiju_length"]).groupby(["kaiju_taxonomy"]).sum(axis=1).reset_index()
         test_df = test_df.rename(
             columns={"kaiju_taxonomy": f"taxonomy_{tax_level}"}
         )
     else:
+        hmm_cols = df.filter(like=group_on[0].lower()).columns.values.tolist()
+        #TODO might not need
+        test_df = df[hmm_cols+samples].copy()
         metric_cols = test_df.filter(items=[group_on[0]+"_score",group_on[0]+"_evalue"]).columns.values.tolist()
         test_df = test_df[(test_df[group_on[0].lower()+"_score"] > min_score) & (test_df[group_on[0].lower()+"_evalue"] < min_evalue)]
         test_df = test_df.drop(columns=metric_cols).groupby(hmm_cols[0:3]).sum(axis=1).reset_index().head()
-    test_df.to_csv(item+output, sep="\t", index=False)
+    test_df.to_csv(output, sep="\t", index=False)
 
 
 def combined_output(df,tax_level,samples,min_evalue,min_score,min_len,group_on,output):
@@ -86,8 +89,8 @@ def combined_output(df,tax_level,samples,min_evalue,min_score,min_len,group_on,o
     hmm_cols = df.filter(like=group_on[0].lower()).columns.values.tolist()
     #TODO might not need
     test_df = df[kaiju_cols+hmm_cols+samples].copy()
-    test_df = test_df[(df["kaiju_length"] > min_len) & (test_df[group_on[0]+"_score"] > min_score) & (test_df[group_on[0]+"_evalue"] < min_evalue)]
-    test_df["kaiju_taxonomy"] = df["kaiju_taxonomy"].apply(lambda x: "; ".join(x.split("; ", split_idx)[0:split_idx]))
+    test_df = test_df[(df["kaiju_length"] > min_len) & (test_df[group_on[0].lower()+"_score"] > min_score) & (test_df[group_on[0].lower()+"_evalue"] < min_evalue)]
+    test_df["kaiju_taxonomy"] = df["kaiju_taxonomy"].apply(lambda x: "; ".join(str(x).split("; ", split_idx)[0:split_idx]))
     metric_cols = test_df.filter(items=[group_on[0].lower()+"_score",group_on[0].lower()+"_evalue"]).columns.values.tolist()
     metric_cols.append("kaiju_length")
     test_df = test_df.drop(columns=metric_cols).groupby(["kaiju_taxonomy"]+hmm_cols[0:3]).sum(axis=1).reset_index()
@@ -98,7 +101,7 @@ def combined_output(df,tax_level,samples,min_evalue,min_score,min_len,group_on,o
 
 
 def main(output, table, tax_level, min_evalue, min_score, min_len,group_on):
-    df = pd.read_table(table)
+    df = pd.read_table(table,low_memory=False)
     # remove the rows w/ no information
     df = df.dropna(
     subset=[
@@ -110,9 +113,9 @@ def main(output, table, tax_level, min_evalue, min_score, min_len,group_on):
     thresh=1)
     samples = df.filter(regex="[0-9]+").columns.values.tolist()
     if len(group_on) > 1:
-        combined_output(df,tax_level,min_evalue, min_score, min_len, group_on,output)
+        combined_output(df,tax_level,samples,min_evalue, min_score, min_len, group_on,output)
     else:
-        single_output(df,tax_level,samples,min_evlaue,min_score,min_len,group_on,output)
+        single_output(df,tax_level,samples,min_evalue,min_score,min_len,group_on,output)
     # split_idx = TAX_LEVELS[tax_level]
     # group_one=["tigrfams","hamap","dbcan","kaiju"]
     # for item in group_one:
@@ -180,7 +183,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--min-evalue",
-        type=int,
+        type=float,
         default=0.001,
         help="lowest evalue to retain per sequence per sample",
     )

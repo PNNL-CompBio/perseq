@@ -1,4 +1,4 @@
- import argparse
+import argparse
 import csv
 import os
 from collections import Counter, defaultdict
@@ -53,7 +53,7 @@ def build_taxonomy_plot(txt, height=900):
     hierarchy = ["phylum", "class", "order"]
     df[hierarchy] = df[hierarchy].fillna("NA")
     df[samples] = df[samples].fillna(0)
-    df = df[hierarchy + value_cols]
+    df = df[hierarchy + samples]
     dfs = relatively.get_dfs_across_hierarchy(
         df, hierarchy, samples, reorder="shannon", dependent="; "
     )
@@ -122,19 +122,22 @@ def parse_classifications_for_taxonomy(path):
         # skip the header
         next(fh)
         for i, line in enumerate(fh, start=1):
-            toks = line.strip("\r\n").split("\t")
-            if toks[2]:
-                taxonomy_counter.update([toks[7]])
-                taxonomy = [j.strip() for j in toks[7].split(";")]
-                taxonomy_level_counter["order"].update([taxonomy[3]])
-                taxonomy_level_counter["class"].update([taxonomy[2]])
-                taxonomy_level_counter["phylum"].update([taxonomy[1]])
-                summary_counter.update(["Assigned Taxonomy"])
-                if not all(s=='' for s in toks[4:12]):
-                    summary_counter.update(["Assigned Both"])
+            toks = line.strip("\n").split("\t")
+            try:
+                if toks[2]:
+                    taxonomy_counter.update([toks[2]])
+                    taxonomy = [j.strip() for j in toks[2].split(";")]
+                    taxonomy_level_counter["order"].update([taxonomy[3]])
+                    taxonomy_level_counter["class"].update([taxonomy[2]])
+                    taxonomy_level_counter["phylum"].update([taxonomy[1]])
+                    summary_counter.update(["Assigned Taxonomy"])
+                    if not all(s=='' for s in toks[4:12]):
+                        summary_counter.update(["Assigned Both"])
+            except:
+                print(len(line))
+                continue
             if not all(s=='' for s in toks[4:12]):
                 summary_counter.update(["Assigned Function"])
-
     return dict(
         taxonomy_level_counter=taxonomy_level_counter,
         summary_counter=summary_counter
@@ -215,6 +218,7 @@ def parse_log_files(merge_logs, unique_logs, clean_logs, classifications_per_sam
         "Unique",
         "Clean",
     ]
+    samp_df = pd.DataFrame.from_dict(classifications_per_sample)
     count_table = defaultdict(list)
     # initial read count, join count, join rate, insert size from merge step
     for merge_log in merge_logs:
@@ -238,9 +242,12 @@ def parse_log_files(merge_logs, unique_logs, clean_logs, classifications_per_sam
                     count_table[sample].append(int(line.strip("\r\n").split("\t")[-1]))
 
     log_df = pd.DataFrame.from_dict(count_table, orient="index")
+    print(log_df.head(10))
+    print(log_df.shape)
+    print(samp_df.shape)
     log_df.columns = header
     # print("classifications", classifications_per_sample.head())
-    log_df = log_df.merge(classifications_per_sample, left_index=True, right_index=True)
+    log_df = log_df.merge(samp_df, left_index=True, right_index=True)
     # print(log_df.head())
     log_df.reset_index(inplace=True)
     header.insert(0, "Sample")
@@ -347,20 +354,25 @@ def main(
     r1_quality_files,
     html,
     conda_env,
-    function_table,
+    taxonomy_table,
     zipped_file
 ):
     clean_logs = glob(clean_logs)
     unique_logs = glob(unique_logs)
     merge_logs = glob(merge_logs)
     summary_table = summary_tables
+    # parse classifcations for summary
+    assigned_dict = parse_classifications_for_taxonomy(summary_table)["summary_counter"]
     r1_quality_files = glob(r1_quality_files)
-    #classifications_per_sample = compile_summary_df(summary_tables)
+    #classifications_per_sample = compile_summary_df(summary_table)
     #value_cols = get_sample_name(summary_tables, "_classifications.txt")
     fig = build_taxonomy_plot(taxonomy_table)
     plots = offline.plot(fig, **PLOTLY_PARAMS)
+    # html_tbl = parse_log_files(
+    #     merge_logs, unique_logs, clean_logs, classifications_per_sample
+    # )
     html_tbl = parse_log_files(
-        merge_logs, unique_logs, clean_logs, summary_table
+        merge_logs, unique_logs, clean_logs, assigned_dict
     )
     quality_plot = build_quality_plot(r1_quality_files)
     conda_env = get_conda_env_str(conda_env)
@@ -572,7 +584,7 @@ if __name__ == "__main__":
     p.add_argument("--r1-quality-files")
     p.add_argument("--html")
     p.add_argument("conda_env")
-    p.add_argument("function_table")
+    p.add_argument("taxonomy_table")
     p.add_argument("zipped_file")
     # p.add_argument("taxonomy_table")
     # p.add_argument("taxonomy_function_table")
@@ -587,7 +599,7 @@ if __name__ == "__main__":
         args.r1_quality_files,
         args.html,
         args.conda_env,
-        args.function_table,
+        args.taxonomy_table,
         args.zipped_file,
         # args.taxonomy_table,
         # args.taxonomy_function_table,
