@@ -159,12 +159,12 @@ def parse_files_for_annotation(path):
             try:
                 if toks[2]:
                     for i,sample in enumerate(header[18:]):
-                        if toks[18+i] != 0:
+                        if str(toks[18+i]) != 0:
                             summary_counter[sample].update(["Assigned Taxonomy"])
                     summary_counter.update()
                     if not all(s=='' for s in toks[3:12]):
                         for i,sample in enumerate(header[18:]):
-                            if toks[18+i] != 0:
+                            if str(toks[18+i]) != 0:
                                 summary_counter[sample].update(["Assigned Both"])
                         #summary_counter.update(["Assigned Both"])
             except:
@@ -172,7 +172,7 @@ def parse_files_for_annotation(path):
                 continue
             if not all(s=='' for s in toks[4:12]):
                 for i,sample in enumerate(header[18:]):
-                    if toks[18+i] != 0:
+                    if str(toks[18+i]) != 0:
                         summary_counter[sample].update(["Assigned Function"])
     return summary_counter
 
