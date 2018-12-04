@@ -142,6 +142,39 @@ def parse_classifications_for_taxonomy(path):
         taxonomy_level_counter=taxonomy_level_counter,
         summary_counter=summary_counter
     )
+def parse_files_for_annotation(path):
+    """
+    parses the annotations to retain which samples were assigned function vs
+    taxonomy vs both
+    """
+    summary_counter={}
+    with open(path) as fh:
+        # skip the header
+        header = next(fh)
+        header = header.strip("\n").split("\t")
+        for sample in header[18:]:
+            summary_counter[sample]=Counter()
+        for line in fh:
+            toks = line.strip("\n").split("\t")
+            try:
+                if toks[2]:
+                    for i,sample in enumerate(header[18:]):
+                        if toks[18+i] != 0:
+                            summary_counter[sample].update(["Assigned Taxonomy"])
+                    summary_counter.update()
+                    if not all(s=='' for s in toks[3:12]):
+                        for i,sample in enumerate(header[18:]):
+                            if toks[18+i] != 0:
+                                summary_counter[sample].update(["Assigned Both"])
+                        #summary_counter.update(["Assigned Both"])
+            except:
+                print(len(line))
+                continue
+            if not all(s=='' for s in toks[4:12]):
+                for i,sample in enumerate(header[18:]):
+                    if toks[18+i] != 0:
+                        summary_counter[sample].update(["Assigned Function"])
+    return summary_counter
 
 def compile_summary_df(classification_tables, tax_levels=["phylum", "class", "order"]):
     """
@@ -218,7 +251,7 @@ def parse_log_files(merge_logs, unique_logs, clean_logs, classifications_per_sam
         "Unique",
         "Clean",
     ]
-    samp_df = pd.DataFrame.from_dict(classifications_per_sample)
+    samp_df = pd.DataFrame.from_dict(classifications_per_sample,orient = "index")
     count_table = defaultdict(list)
     # initial read count, join count, join rate, insert size from merge step
     for merge_log in merge_logs:
@@ -362,7 +395,7 @@ def main(
     merge_logs = glob(merge_logs)
     summary_table = summary_tables
     # parse classifcations for summary
-    assigned_dict = parse_classifications_for_taxonomy(summary_table)["summary_counter"]
+    assigned_dict = parse_files_for_annotation(summary_table)
     r1_quality_files = glob(r1_quality_files)
     #classifications_per_sample = compile_summary_df(summary_table)
     #value_cols = get_sample_name(summary_tables, "_classifications.txt")

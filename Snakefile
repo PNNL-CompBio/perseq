@@ -632,7 +632,7 @@ rule remove_empty_annotations:
             print(header.strip("\n"), file=output)
             for line in file:
                 toks = line.strip("\r\n").split("\t")
-                if not all(s=='' for s in toks[4:12]):
+                if not all(s=='' for s in toks[2:12]):
                     print(line.strip("\n"), file=output)
 
 rule build_hmms_table:
