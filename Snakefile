@@ -753,7 +753,7 @@ rule zip_attachments:
         krona_tax = "krona_plots/tax.krona.html",
         krona_ec = "krona_plots/ec.krona.html"
     output:
-        temp("perseq_downloads.tar.gz")
+        "perseq_downloads.tar.gz"
     conda:
         CONDAENV
     shell:
