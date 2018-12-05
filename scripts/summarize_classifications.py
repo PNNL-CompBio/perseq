@@ -77,7 +77,7 @@ def single_output(df,tax_level,samples,min_evalue,min_score,min_len,group_on,out
         test_df = df[hmm_cols+samples].copy()
         metric_cols = test_df.filter(items=[group_on[0]+"_score",group_on[0]+"_evalue"]).columns.values.tolist()
         test_df = test_df[(test_df[group_on[0].lower()+"_score"] > min_score) & (test_df[group_on[0].lower()+"_evalue"] < min_evalue)]
-        test_df = test_df.drop(columns=metric_cols).groupby(hmm_cols[0:3]).sum(axis=1).reset_index().head()
+        test_df = test_df.drop(columns=metric_cols).groupby(hmm_cols[0:3]).sum(axis=1).reset_index()
     test_df.to_csv(output, sep="\t", index=False)
 
 
@@ -87,11 +87,14 @@ def combined_output(df,tax_level,samples,min_evalue,min_score,min_len,group_on,o
     kaiju_cols = df.filter(like="kaiju").columns.values.tolist()
     # for item in group_one:
     hmm_cols = df.filter(like=group_on[0].lower()).columns.values.tolist()
+    print(samples)
+    print(group_on[0])
     #TODO might not need
     test_df = df[kaiju_cols+hmm_cols+samples].copy()
     test_df = test_df[(df["kaiju_length"] > min_len) & (test_df[group_on[0].lower()+"_score"] > min_score) & (test_df[group_on[0].lower()+"_evalue"] < min_evalue)]
     test_df["kaiju_taxonomy"] = df["kaiju_taxonomy"].apply(lambda x: "; ".join(str(x).split("; ", split_idx)[0:split_idx]))
     metric_cols = test_df.filter(items=[group_on[0].lower()+"_score",group_on[0].lower()+"_evalue"]).columns.values.tolist()
+    print(metric_cols)
     metric_cols.append("kaiju_length")
     test_df = test_df.drop(columns=metric_cols).groupby(["kaiju_taxonomy"]+hmm_cols[0:3]).sum(axis=1).reset_index()
     test_df = test_df.rename(
@@ -102,16 +105,17 @@ def combined_output(df,tax_level,samples,min_evalue,min_score,min_len,group_on,o
 
 def main(output, table, tax_level, min_evalue, min_score, min_len,group_on):
     df = pd.read_table(table,low_memory=False)
-    # remove the rows w/ no information
-    df = df.dropna(
-    subset=[
-        "kaiju_taxonomy", "tigrfams_ec", "tigrfams_gene", "tigrfams_product",
+    col_names = [
+        "seq","kaiju_length","kaiju_taxonomy", "tigrfams_ec", "tigrfams_gene", "tigrfams_product",
         "tigrfams_score", "tigrfams_evalue", "hamap_ec", "hamap_gene",
         "hamap_product", "hamap_score", "hamap_evalue", "dbcan_ec",
-        "dbcan_enzyme_class", "dbcan_enzyme_class_subfamily"
-    ],
-    thresh=1)
-    samples = df.filter(regex="[0-9]+").columns.values.tolist()
+        "dbcan_enzyme_class", "dbcan_enzyme_class_subfamily","dbcan_score", "dbcan_evalue"
+    ]
+    # remove the rows w/ no information
+    # df = df.dropna(
+    # subset= col_names,
+    # thresh=2)
+    samples = [c for c in df.columns.values.tolist() if c not in col_names]
     if len(group_on) > 1:
         combined_output(df,tax_level,samples,min_evalue, min_score, min_len, group_on,output)
     else:
