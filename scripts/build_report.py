@@ -47,7 +47,7 @@ def get_sample_order(lst):
 
 def build_taxonomy_plot(txt, height=900):
     df = pd.read_table(txt)
-    samples = df.filter(regex="[0-9]+").columns.values.tolist()
+    samples = df.columns.values.tolist()[1:]
     levels = ["kingdom", "phylum", "class", "order"]
     df[levels] = df["taxonomy_order"].str.split(";", expand=True)
     hierarchy = ["phylum", "class", "order"]
@@ -160,12 +160,12 @@ def parse_files_for_annotation(path):
                 if toks[2]:
                     for i,sample in enumerate(header[18:]):
                         if str(toks[18+i]) != 0:
-                            summary_counter[sample].update(["Assigned Taxonomy"])
-                    summary_counter.update()
-                    if not all(s=='' for s in toks[3:12]):
-                        for i,sample in enumerate(header[18:]):
-                            if str(toks[18+i]) != 0:
-                                summary_counter[sample].update(["Assigned Both"])
+                            summary_counter[sample].update(["Kaiju+NR"])
+                    #summary_counter.update()
+                    # if not all(s=='' for s in toks[3:12]):
+                    #     for i,sample in enumerate(header[18:]):
+                    #         if str(toks[18+i]) != 0:
+                    #             summary_counter[sample].update(["Assigned Both"])
                         #summary_counter.update(["Assigned Both"])
             except:
                 print(len(line))
@@ -173,43 +173,43 @@ def parse_files_for_annotation(path):
             if not all(s=='' for s in toks[4:12]):
                 for i,sample in enumerate(header[18:]):
                     if str(toks[18+i]) != 0:
-                        summary_counter[sample].update(["Assigned Function"])
+                        summary_counter[sample].update(["TIGRFAMs,HAMAP,dbCAN\n hits per sample"])
     return summary_counter
 
-def compile_summary_df(classification_tables, tax_levels=["phylum", "class", "order"]):
-    """
-    Reads in multiple sample alignments from diamond in a given directory and merges them into
-    a single pandas.DataFrame. It returns a pandas dataframe for each of
-    phylum that is ready to plug into the processing function. Also returns total counts
-    which is necessary to calculate the percentage of total that is being represented
-    """
-    dfs = {}
-    classifications_per_sample = {}
-    cols = df.filter(regex="[A-Z]+").columns.values.tolist()
-    samples = df.filter(regex="[0-9]+").columns.values.tolist()
-    for sample in samples:
-        df[cols]
-
-    for classification_table in classification_tables:
-        sample = get_sample(classification_table, "_classifications.txt")
-        parsed_taxonomy = parse_classifications_for_taxonomy(classification_table)
-        # assigned #'s in summary table
-        classifications_per_sample[sample] = parsed_taxonomy["summary_counter"]
-        if len(dfs) == 0:
-            for tax_level in tax_levels:
-                dfs[tax_level] = get_df_at_tax_level(
-                    parsed_taxonomy["taxonomy_level_counter"][tax_level],
-                    sample,
-                    tax_level,
-                )
-            continue
-
-        for tax_level in tax_levels:
-            df = get_df_at_tax_level(
-                parsed_taxonomy["taxonomy_level_counter"][tax_level], sample, tax_level
-            )
-            dfs[tax_level] = dfs[tax_level].merge(df, on=tax_level, how="outer")
-    return pd.DataFrame.from_dict(classifications_per_sample, orient="index")
+# def compile_summary_df(classification_tables, tax_levels=["phylum", "class", "order"]):
+#     """
+#     Reads in multiple sample alignments from diamond in a given directory and merges them into
+#     a single pandas.DataFrame. It returns a pandas dataframe for each of
+#     phylum that is ready to plug into the processing function. Also returns total counts
+#     which is necessary to calculate the percentage of total that is being represented
+#     """
+#     dfs = {}
+#     classifications_per_sample = {}
+#     cols = df.filter(regex="[A-Z]+").columns.values.tolist()
+#     samples = df.filter(regex="[0-9]+").columns.values.tolist()
+#     for sample in samples:
+#         df[cols]
+#
+#     for classification_table in classification_tables:
+#         sample = get_sample(classification_table, "_classifications.txt")
+#         parsed_taxonomy = parse_classifications_for_taxonomy(classification_table)
+#         # assigned #'s in summary table
+#         classifications_per_sample[sample] = parsed_taxonomy["summary_counter"]
+#         if len(dfs) == 0:
+#             for tax_level in tax_levels:
+#                 dfs[tax_level] = get_df_at_tax_level(
+#                     parsed_taxonomy["taxonomy_level_counter"][tax_level],
+#                     sample,
+#                     tax_level,
+#                 )
+#             continue
+#
+#         for tax_level in tax_levels:
+#             df = get_df_at_tax_level(
+#                 parsed_taxonomy["taxonomy_level_counter"][tax_level], sample, tax_level
+#             )
+#             dfs[tax_level] = dfs[tax_level].merge(df, on=tax_level, how="outer")
+#     return pd.DataFrame.from_dict(classifications_per_sample, orient="index")
 
 
 def get_df_at_tax_level(count_obj, sample, tax_level):
@@ -472,22 +472,38 @@ rRNA using bbsplit [2]. An arbitrary number of Name:FASTA pairs may be
 specified during the decontamination process. Functional annotation and
 taxonomic classification were performed following the decontamination step.
 
+Translation and Clustering
+**************************
+
+Raw nucleotide sequences are translated into protein sequences using Prodigal[4]
+in anonymous mode. These sequences are then clustered at a 90% sequence identity
+using mmseqs[5], to decrease the computational resources required to perform
+annotation. These representative sequences are then annotated for functional
+and taxonomic information.
+
+
 Functional Annotation
 *********************
 
-The blastx algorithm of DIAMOND [4] was used to align nucleotide sequences to
-the KEGG protein reference database [5] consisting of non-redundant, family
-level fungal eukaryotes and genus level prokaryotes
-(``--strand=both --evalue 0.00001``). The highest scoring alignment per
-sequence was used for functional annotation.
+There are three distinct hmm libraries used to infer functional potential:
+HAMAP[6], dbCAN[7], and TIRGRFAMs[8]. The alignment of each seuqnce to each database
+was performed using HMMSearch of HMMer[9]. TIGRFAMs and HAMAP both provide
+enzyme commission (EC), gene and product, while dbCAN2 provides enzyme class,
+enzyme subclass and EC.
 
 Taxonomic Annotation
 ********************
 
 Kmer-based taxonomic classification was performed on the merged reads using
-Kaiju [6] in greedy mode (``-a greedy -E 0.05``). NCBI's nr database [7]
+Kaiju [10] in greedy mode (``-a greedy -E 0.05``). NCBI's nr database [11]
 containing reference sequences for archaea, bacteria, viruses, fungi, and
 microbial eukaryotes was used as the reference index for Kaiju.
+
+Aggregation
+***********
+
+Once functional and taxonomic annotation has completed all of the sequences per
+sample are aligned to the now annotated representative sequences using DIAMOND[12].
 
 References
 **********
@@ -495,10 +511,15 @@ References
 1. Rognes T, Flouri T, Nichols B, Quince C, Mahé F. VSEARCH: a versatile open source tool for metagenomics. PeerJ. PeerJ Inc; 2016;4:e2584.
 2. Bushnell B. BBTools [Internet]. Available from: https://sourceforge.net/projects/bbmap/
 3. Li H. Seqtk [Internet]. Available from: https://github.com/lh3/seqtk
-4. Buchfink B, Xie C, Huson DH. Fast and sensitive protein alignment using DIAMOND. Nat. Methods. Nature Publishing Group; 2015;12:59–60.
-5. Kanehisa M, Sato Y, Kawashima M, Furumichi M, Tanabe M. KEGG as a reference resource for gene and protein annotation. Nucleic Acids Res. 2016;44:D457–62.
-6. Menzel P, Ng KL, Krogh A. Fast and sensitive taxonomic classification for metagenomics with Kaiju. Nat Commun. Nature Publishing Group; 2016;7:11257.
-7. NCBI Resource Coordinators. Database resources of the National Center for Biotechnology Information. Nucleic Acids Res. 2018;46:D8–D13.
+4. fd
+5. jdkf
+6. DFRA_DIACA
+7. DFRA_DIACA
+8. def
+9. dk
+10. Menzel P, Ng KL, Krogh A. Fast and sensitive taxonomic classification for metagenomics with Kaiju. Nat Commun. Nature Publishing Group; 2016;7:11257.
+11. NCBI Resource Coordinators. Database resources of the National Center for Biotechnology Information. Nucleic Acids Res. 2018;46:D8–D13.
+12. Buchfink B, Xie C, Huson DH. Fast and sensitive protein alignment using DIAMOND. Nat. Methods. Nature Publishing Group; 2015;12:59–60.
 
 
 Execution Environment
@@ -511,10 +532,10 @@ Execution Environment
 Output
 ------
 
-Classification Tables
+Annotations Table
 *********************
 
-Per sample classifications in tables/ contain:
+Table containing annotations across all samples:
 
 .. table::
     :name: classificationtable
@@ -522,8 +543,22 @@ Per sample classifications in tables/ contain:
     =========================  ==========================================================================================================================================
     Header ID                  Definition
     =========================  ==========================================================================================================================================
-    aa_alignment_length        The length of the DIAMOND blastx hit
-    aa_percent_id              The percent ID of the DIAMOND blastx hit; could be used to increase post-processing stringency
+    seq
+    kaiju_length
+    kaiju_taxonomy
+    tigrfams_ec
+    tigrfams_gene
+    tigrfams_product
+    tigrfams_score
+    tigrfams_evalue
+    hamap_ec
+    hamap_gene
+    hamap_product
+    hamap_score
+    hamap_evalue
+
+    <hmm>_ec       The length of the DIAMOND blastx hit
+    <hmm>_gene             The percent ID of the DIAMOND blastx hit; could be used to increase post-processing stringency
     ec                         Enzyme Commission number from KEGG; semicolon delimited where multiple
     ko                         KEGG entry ID
     product                    KEGG gene ID <semicolon> KEGG product
@@ -555,41 +590,43 @@ contain:
 Function
 ````````
 
-Per function assignments in tables named **summaries/function/<type>.txt**
+Per function assignments in tables named **summaries/hmms_summary/<hmm>.txt**
 contain:
 
 .. table::
     :name: functiondeftable
 
-    ====================  ===================================================================
-    Header ID             Definition
-    ====================  ===================================================================
-    <type>                either KO, EC, or product into which counts have been summed
-    samples names         non-normalized, per sample sum for this particular functional group
-    level_1               KEGG hierarchy [level 1] if KO defined in first column
-    level_2               KEGG hierarchy [level 2] if KO defined in first column
-    level_3               KEGG hierarchy [level 3] if KO defined in first column
-    ====================  ===================================================================
+    ====================         ===================================================================
+    Header ID                    Definition
+    ====================         ===================================================================
+    <hmm>_ec                     either HAMAP,dbCAN or TIGRFAMs EC
+    <hmm>_gene                   either HAMAP,dbCAN or TIGRFAMs gene
+    <hmm>_product                either HAMAP,dbCAN or TIGRFAMs product
+    <hmm>_enzyme_class           dbcan only enzyme class descriptor
+    <hmm>_enzyme_class_subfamily dbcan only enzyme class subfamily descriptor
+    samples names                non-normalized, per sample sum for this particular functional group
+    ====================         ===================================================================
 
 Combined
 ````````
 
 Per taxonomy+function assignments in tables named
-**summaries/combined/<type>_<level>.txt** contain:
+**summaries/combined/<hmm>_<level>.txt** contain:
 
 .. table::
     :name: combineddeftable
 
-    ====================  ====================================================================
-    Header ID             Definition
-    ====================  ====================================================================
-    <type>                either KO, EC, or product; counts are summed using <type>+<taxonomy>
-    taxonomy_<level>      taxonomic level; counts are summed using <type>+<taxonomy>
-    sample names          non-normalized, per sample sum for this particular functional group
-    level_1               KEGG hierarchy [level 1] if KO defined in first column
-    level_2               KEGG hierarchy [level 2] if KO defined in first column
-    level_3               KEGG hierarchy [level 3] if KO defined in first column
-    ====================  ====================================================================
+    ====================         ====================================================================
+    Header ID                    Definition
+    ====================         ====================================================================
+    <hmm>_ec                     either HAMAP,dbCAN or TIGRFAMs EC
+    <hmm>_gene                   either HAMAP,dbCAN or TIGRFAMs gene
+    <hmm>_product                either HAMAP,dbCAN or TIGRFAMs product
+    <hmm>_enzyme_class           dbcan only enzyme class descriptor
+    <hmm>_enzyme_class_subfamily dbcan only enzyme class subfamily descriptor
+    taxonomy_<level>             taxonomic level; counts are summed using <hmm>+<taxonomy>
+    sample names                 non-normalized, per sample sum for this particular functional group
+    ====================         ====================================================================
 
 Downloads
 ---------
