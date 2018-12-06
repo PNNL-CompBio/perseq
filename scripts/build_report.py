@@ -159,7 +159,7 @@ def parse_files_for_annotation(path):
             try:
                 if toks[2]:
                     for i,sample in enumerate(header[18:]):
-                        if str(toks[18+i]) != 0:
+                        if int(toks[18+i]) != 0:
                             summary_counter[sample].update(["Kaiju+NR"])
                     #summary_counter.update()
                     # if not all(s=='' for s in toks[3:12]):
@@ -172,7 +172,7 @@ def parse_files_for_annotation(path):
                 continue
             if not all(s=='' for s in toks[4:12]):
                 for i,sample in enumerate(header[18:]):
-                    if str(toks[18+i]) != 0:
+                    if int(toks[18+i]) != 0:
                         summary_counter[sample].update(["TIGRFAMs,HAMAP,dbCAN\n hits per sample"])
     return summary_counter
 
@@ -279,12 +279,14 @@ def parse_log_files(merge_logs, unique_logs, clean_logs, classifications_per_sam
     print(log_df.shape)
     print(samp_df.shape)
     log_df.columns = header
+    print(log_df.head())
     # print("classifications", classifications_per_sample.head())
     log_df = log_df.merge(samp_df, left_index=True, right_index=True)
+    print(log_df.head())
     # print(log_df.head())
     log_df.reset_index(inplace=True)
     header.insert(0, "Sample")
-    header.extend(["Assigned\nFunction", "Assigned\nTaxonomy", "Assigned\nBoth"])
+    header.extend(["TIGRFAMs,HAMAP,dbCAN\n hits per sample", "Kaiju+NR"])
     log_df.columns = header
     sample_summary_table = log_df[header].to_html(
         index=False,
@@ -533,7 +535,7 @@ Output
 ------
 
 Annotations Table
-*********************
+*****************
 
 Table containing annotations across all samples:
 
@@ -556,7 +558,6 @@ Table containing annotations across all samples:
     hamap_product
     hamap_score
     hamap_evalue
-
     <hmm>_ec       The length of the DIAMOND blastx hit
     <hmm>_gene             The percent ID of the DIAMOND blastx hit; could be used to increase post-processing stringency
     ec                         Enzyme Commission number from KEGG; semicolon delimited where multiple
