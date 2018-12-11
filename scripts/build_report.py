@@ -45,16 +45,17 @@ def get_sample_order(lst):
     return [i[0] for i in sorted(lst, key=lambda x: x[1], reverse=True)]
 
 
-def build_taxonomy_plot(txt, value_cols, height=900):
+def build_taxonomy_plot(txt, height=900):
     df = pd.read_table(txt)
+    samples = df.columns.values.tolist()[1:]
     levels = ["kingdom", "phylum", "class", "order"]
     df[levels] = df["taxonomy_order"].str.split(";", expand=True)
     hierarchy = ["phylum", "class", "order"]
     df[hierarchy] = df[hierarchy].fillna("NA")
-    df[value_cols] = df[value_cols].fillna(0)
-    df = df[hierarchy + value_cols]
+    df[samples] = df[samples].fillna(0)
+    df = df[hierarchy + samples]
     dfs = relatively.get_dfs_across_hierarchy(
-        df, hierarchy, value_cols, reorder="shannon", dependent="; "
+        df, hierarchy, samples, reorder="shannon", dependent="; "
     )
     fig = relatively.get_abundance_figure_from_dfs(
         dfs, hierarchy, "Assigned Taxonomy Per Sample", height=height
@@ -66,11 +67,47 @@ def get_sample_name(path, key):
     return [os.path.basename(item).partition(key)[0] for item in path]
 
 
+# def parse_classifications_for_taxonomy(path):
+#     """
+#     SN1035:381:h3cv7bcx2:2:2202:3165:73750	-1	-1
+#     SN1035:381:h3cv7bcx2:1:1105:7280:88523	67.5	40				111	Archaea; Thaumarchaeota; Nitrososphaerales; Nitrososphaeria; Nitrososphaeraceae; Candidatus Nitrosocosmicus; Candidatus Nitrocosmicus oleophilus;
+#     SN1035:381:h3cv7bcx2:1:1204:20140:83036	78.4	37	ko:K00820	glmS, GFPT; glucosamine---fructose-6-phosphate aminotransferase (isomerizing)	2.6.1.16	229	Bacteria; Actinobacteria; NA; NA; NA; NA; Actinobacteria bacterium 13_1_40CM_66_12;
+#     """
+#     logger.info("Parsing {}".format(path))
+#     # hardcoded tax levels :(
+#     taxonomy_level_counter = {
+#         "order": Counter(),
+#         "class": Counter(),
+#         "phylum": Counter(),
+#     }
+#     taxonomy_counter = Counter()
+#     summary_counter = Counter()
+#     with open(path) as fh:
+#         # skip the header
+#         next(fh)
+#         for i, line in enumerate(fh, start=1):
+#             toks = line.strip("\r\n").split("\t")
+#             if toks[3]:
+#                 summary_counter.update(["Assigned Function"])
+#                 if toks[7]:
+#                     summary_counter.update(["Assigned Both"])
+#             if toks[7]:
+#                 taxonomy_counter.update([toks[7]])
+#                 taxonomy = [j.strip() for j in toks[7].split(";")]
+#                 taxonomy_level_counter["order"].update([taxonomy[3]])
+#                 taxonomy_level_counter["class"].update([taxonomy[2]])
+#                 taxonomy_level_counter["phylum"].update([taxonomy[1]])
+#                 summary_counter.update(["Assigned Taxonomy"])
+#     return dict(
+#         taxonomy_level_counter=taxonomy_level_counter,
+#         summary_counter=summary_counter
+#     )
+
 def parse_classifications_for_taxonomy(path):
     """
-    SN1035:381:h3cv7bcx2:2:2202:3165:73750	-1	-1
-    SN1035:381:h3cv7bcx2:1:1105:7280:88523	67.5	40				111	Archaea; Thaumarchaeota; Nitrososphaerales; Nitrososphaeria; Nitrososphaeraceae; Candidatus Nitrosocosmicus; Candidatus Nitrocosmicus oleophilus;
-    SN1035:381:h3cv7bcx2:1:1204:20140:83036	78.4	37	ko:K00820	glmS, GFPT; glucosamine---fructose-6-phosphate aminotransferase (isomerizing)	2.6.1.16	229	Bacteria; Actinobacteria; NA; NA; NA; NA; Actinobacteria bacterium 13_1_40CM_66_12;
+    37056   274     Bacteria; Bacteroidetes; Sphingobacteriia; Sphingobacteriales; NA; NA; Sphingobacteriales bacterium UTBCD1;     3.4.21.92       clpP    ATP-dependent Clp endopeptidase proteolytic subun
+    75331   0                                                                                                                                       0       0       0       0       0       0       0       0
+
     """
     logger.info("Parsing {}".format(path))
     # hardcoded tax levels :(
@@ -85,53 +122,94 @@ def parse_classifications_for_taxonomy(path):
         # skip the header
         next(fh)
         for i, line in enumerate(fh, start=1):
-            toks = line.strip("\r\n").split("\t")
-            if toks[3]:
+            toks = line.strip("\n").split("\t")
+            try:
+                if toks[2]:
+                    taxonomy_counter.update([toks[2]])
+                    taxonomy = [j.strip() for j in toks[2].split(";")]
+                    taxonomy_level_counter["order"].update([taxonomy[3]])
+                    taxonomy_level_counter["class"].update([taxonomy[2]])
+                    taxonomy_level_counter["phylum"].update([taxonomy[1]])
+                    summary_counter.update(["Assigned Taxonomy"])
+                    if not all(s=='' for s in toks[4:12]):
+                        summary_counter.update(["Assigned Both"])
+            except:
+                print(len(line))
+                continue
+            if not all(s=='' for s in toks[4:12]):
                 summary_counter.update(["Assigned Function"])
-                if toks[7]:
-                    summary_counter.update(["Assigned Both"])
-            if toks[7]:
-                taxonomy_counter.update([toks[7]])
-                taxonomy = [j.strip() for j in toks[7].split(";")]
-                taxonomy_level_counter["order"].update([taxonomy[3]])
-                taxonomy_level_counter["class"].update([taxonomy[2]])
-                taxonomy_level_counter["phylum"].update([taxonomy[1]])
-                summary_counter.update(["Assigned Taxonomy"])
     return dict(
         taxonomy_level_counter=taxonomy_level_counter,
         summary_counter=summary_counter
     )
-
-
-def compile_summary_df(classification_tables, tax_levels=["phylum", "class", "order"]):
+def parse_files_for_annotation(path):
     """
-    Reads in multiple sample alignments from diamond in a given directory and merges them into
-    a single pandas.DataFrame. It returns a pandas dataframe for each of th
-    phylum that is ready to plug into the processing function. Also returns total counts
-    which is necessary to calculate the percentage of total that is being represented
+    parses the annotations to retain which samples were assigned function vs
+    taxonomy vs both
     """
-    dfs = {}
-    classifications_per_sample = {}
-    for classification_table in classification_tables:
-        sample = get_sample(classification_table, "_classifications.txt")
-        parsed_taxonomy = parse_classifications_for_taxonomy(classification_table)
-        # assigned #'s in summary table
-        classifications_per_sample[sample] = parsed_taxonomy["summary_counter"]
-        if len(dfs) == 0:
-            for tax_level in tax_levels:
-                dfs[tax_level] = get_df_at_tax_level(
-                    parsed_taxonomy["taxonomy_level_counter"][tax_level],
-                    sample,
-                    tax_level,
-                )
-            continue
+    summary_counter={}
+    with open(path) as fh:
+        # skip the header
+        header = next(fh)
+        header = header.strip("\n").split("\t")
+        for sample in header[18:]:
+            summary_counter[sample]=Counter()
+        for line in fh:
+            toks = line.strip("\n").split("\t")
+            try:
+                if toks[2]:
+                    for i,sample in enumerate(header[18:]):
+                        if int(toks[18+i]) != 0:
+                            summary_counter[sample].update(["Kaiju+NR"])
+                    #summary_counter.update()
+                    # if not all(s=='' for s in toks[3:12]):
+                    #     for i,sample in enumerate(header[18:]):
+                    #         if str(toks[18+i]) != 0:
+                    #             summary_counter[sample].update(["Assigned Both"])
+                        #summary_counter.update(["Assigned Both"])
+            except:
+                print(len(line))
+                continue
+            if not all(s=='' for s in toks[4:12]):
+                for i,sample in enumerate(header[18:]):
+                    if int(toks[18+i]) != 0:
+                        summary_counter[sample].update(["TIGRFAMs,HAMAP,dbCAN\n hits per sample"])
+    return summary_counter
 
-        for tax_level in tax_levels:
-            df = get_df_at_tax_level(
-                parsed_taxonomy["taxonomy_level_counter"][tax_level], sample, tax_level
-            )
-            dfs[tax_level] = dfs[tax_level].merge(df, on=tax_level, how="outer")
-    return pd.DataFrame.from_dict(classifications_per_sample, orient="index")
+# def compile_summary_df(classification_tables, tax_levels=["phylum", "class", "order"]):
+#     """
+#     Reads in multiple sample alignments from diamond in a given directory and merges them into
+#     a single pandas.DataFrame. It returns a pandas dataframe for each of
+#     phylum that is ready to plug into the processing function. Also returns total counts
+#     which is necessary to calculate the percentage of total that is being represented
+#     """
+#     dfs = {}
+#     classifications_per_sample = {}
+#     cols = df.filter(regex="[A-Z]+").columns.values.tolist()
+#     samples = df.filter(regex="[0-9]+").columns.values.tolist()
+#     for sample in samples:
+#         df[cols]
+#
+#     for classification_table in classification_tables:
+#         sample = get_sample(classification_table, "_classifications.txt")
+#         parsed_taxonomy = parse_classifications_for_taxonomy(classification_table)
+#         # assigned #'s in summary table
+#         classifications_per_sample[sample] = parsed_taxonomy["summary_counter"]
+#         if len(dfs) == 0:
+#             for tax_level in tax_levels:
+#                 dfs[tax_level] = get_df_at_tax_level(
+#                     parsed_taxonomy["taxonomy_level_counter"][tax_level],
+#                     sample,
+#                     tax_level,
+#                 )
+#             continue
+#
+#         for tax_level in tax_levels:
+#             df = get_df_at_tax_level(
+#                 parsed_taxonomy["taxonomy_level_counter"][tax_level], sample, tax_level
+#             )
+#             dfs[tax_level] = dfs[tax_level].merge(df, on=tax_level, how="outer")
+#     return pd.DataFrame.from_dict(classifications_per_sample, orient="index")
 
 
 def get_df_at_tax_level(count_obj, sample, tax_level):
@@ -173,6 +251,7 @@ def parse_log_files(merge_logs, unique_logs, clean_logs, classifications_per_sam
         "Unique",
         "Clean",
     ]
+    samp_df = pd.DataFrame.from_dict(classifications_per_sample,orient = "index")
     count_table = defaultdict(list)
     # initial read count, join count, join rate, insert size from merge step
     for merge_log in merge_logs:
@@ -196,13 +275,18 @@ def parse_log_files(merge_logs, unique_logs, clean_logs, classifications_per_sam
                     count_table[sample].append(int(line.strip("\r\n").split("\t")[-1]))
 
     log_df = pd.DataFrame.from_dict(count_table, orient="index")
+    print(log_df.head(10))
+    print(log_df.shape)
+    print(samp_df.shape)
     log_df.columns = header
+    print(log_df.head())
     # print("classifications", classifications_per_sample.head())
-    log_df = log_df.merge(classifications_per_sample, left_index=True, right_index=True)
+    log_df = log_df.merge(samp_df, left_index=True, right_index=True)
+    print(log_df.head())
     # print(log_df.head())
     log_df.reset_index(inplace=True)
     header.insert(0, "Sample")
-    header.extend(["Assigned\nFunction", "Assigned\nTaxonomy", "Assigned\nBoth"])
+    header.extend(["TIGRFAMs,HAMAP,dbCAN\n hits per sample", "Kaiju+NR"])
     log_df.columns = header
     sample_summary_table = log_df[header].to_html(
         index=False,
@@ -305,20 +389,25 @@ def main(
     r1_quality_files,
     html,
     conda_env,
-    function_table,
+    taxonomy_table,
     zipped_file
 ):
     clean_logs = glob(clean_logs)
     unique_logs = glob(unique_logs)
     merge_logs = glob(merge_logs)
-    summary_tables = glob(summary_tables)
+    summary_table = summary_tables
+    # parse classifcations for summary
+    assigned_dict = parse_files_for_annotation(summary_table)
     r1_quality_files = glob(r1_quality_files)
-    classifications_per_sample = compile_summary_df(summary_tables)
-    value_cols = get_sample_name(summary_tables, "_classifications.txt")
-    fig = build_taxonomy_plot(taxonomy_table, value_cols)
+    #classifications_per_sample = compile_summary_df(summary_table)
+    #value_cols = get_sample_name(summary_tables, "_classifications.txt")
+    fig = build_taxonomy_plot(taxonomy_table)
     plots = offline.plot(fig, **PLOTLY_PARAMS)
+    # html_tbl = parse_log_files(
+    #     merge_logs, unique_logs, clean_logs, classifications_per_sample
+    # )
     html_tbl = parse_log_files(
-        merge_logs, unique_logs, clean_logs, classifications_per_sample
+        merge_logs, unique_logs, clean_logs, assigned_dict
     )
     quality_plot = build_quality_plot(r1_quality_files)
     conda_env = get_conda_env_str(conda_env)
@@ -385,22 +474,38 @@ rRNA using bbsplit [2]. An arbitrary number of Name:FASTA pairs may be
 specified during the decontamination process. Functional annotation and
 taxonomic classification were performed following the decontamination step.
 
+Translation and Clustering
+**************************
+
+Raw nucleotide sequences are translated into protein sequences using Prodigal[4]
+in anonymous mode. These sequences are then clustered at a 90% sequence identity
+using mmseqs[5], to decrease the computational resources required to perform
+annotation. These representative sequences are then annotated for functional
+and taxonomic information.
+
+
 Functional Annotation
 *********************
 
-The blastx algorithm of DIAMOND [4] was used to align nucleotide sequences to
-the KEGG protein reference database [5] consisting of non-redundant, family
-level fungal eukaryotes and genus level prokaryotes
-(``--strand=both --evalue 0.00001``). The highest scoring alignment per
-sequence was used for functional annotation.
+There are three distinct hmm libraries used to infer functional potential:
+HAMAP[6], dbCAN[7], and TIRGRFAMs[8]. The alignment of each seuqnce to each database
+was performed using HMMSearch of HMMer[9]. TIGRFAMs and HAMAP both provide
+enzyme commission (EC), gene and product, while dbCAN2 provides enzyme class,
+enzyme subclass and EC.
 
 Taxonomic Annotation
 ********************
 
 Kmer-based taxonomic classification was performed on the merged reads using
-Kaiju [6] in greedy mode (``-a greedy -E 0.05``). NCBI's nr database [7]
+Kaiju [10] in greedy mode (``-a greedy -E 0.05``). NCBI's nr database [11]
 containing reference sequences for archaea, bacteria, viruses, fungi, and
 microbial eukaryotes was used as the reference index for Kaiju.
+
+Aggregation
+***********
+
+Once functional and taxonomic annotation has completed all of the sequences per
+sample are aligned to the now annotated representative sequences using DIAMOND[12].
 
 References
 **********
@@ -408,10 +513,15 @@ References
 1. Rognes T, Flouri T, Nichols B, Quince C, Mahé F. VSEARCH: a versatile open source tool for metagenomics. PeerJ. PeerJ Inc; 2016;4:e2584.
 2. Bushnell B. BBTools [Internet]. Available from: https://sourceforge.net/projects/bbmap/
 3. Li H. Seqtk [Internet]. Available from: https://github.com/lh3/seqtk
-4. Buchfink B, Xie C, Huson DH. Fast and sensitive protein alignment using DIAMOND. Nat. Methods. Nature Publishing Group; 2015;12:59–60.
-5. Kanehisa M, Sato Y, Kawashima M, Furumichi M, Tanabe M. KEGG as a reference resource for gene and protein annotation. Nucleic Acids Res. 2016;44:D457–62.
-6. Menzel P, Ng KL, Krogh A. Fast and sensitive taxonomic classification for metagenomics with Kaiju. Nat Commun. Nature Publishing Group; 2016;7:11257.
-7. NCBI Resource Coordinators. Database resources of the National Center for Biotechnology Information. Nucleic Acids Res. 2018;46:D8–D13.
+4. fd
+5. jdkf
+6. DFRA_DIACA
+7. DFRA_DIACA
+8. def
+9. dk
+10. Menzel P, Ng KL, Krogh A. Fast and sensitive taxonomic classification for metagenomics with Kaiju. Nat Commun. Nature Publishing Group; 2016;7:11257.
+11. NCBI Resource Coordinators. Database resources of the National Center for Biotechnology Information. Nucleic Acids Res. 2018;46:D8–D13.
+12. Buchfink B, Xie C, Huson DH. Fast and sensitive protein alignment using DIAMOND. Nat. Methods. Nature Publishing Group; 2015;12:59–60.
 
 
 Execution Environment
@@ -424,10 +534,10 @@ Execution Environment
 Output
 ------
 
-Classification Tables
-*********************
+Annotations Table
+*****************
 
-Per sample classifications in tables/ contain:
+Table containing annotations across all samples:
 
 .. table::
     :name: classificationtable
@@ -435,8 +545,21 @@ Per sample classifications in tables/ contain:
     =========================  ==========================================================================================================================================
     Header ID                  Definition
     =========================  ==========================================================================================================================================
-    aa_alignment_length        The length of the DIAMOND blastx hit
-    aa_percent_id              The percent ID of the DIAMOND blastx hit; could be used to increase post-processing stringency
+    seq
+    kaiju_length
+    kaiju_taxonomy
+    tigrfams_ec
+    tigrfams_gene
+    tigrfams_product
+    tigrfams_score
+    tigrfams_evalue
+    hamap_ec
+    hamap_gene
+    hamap_product
+    hamap_score
+    hamap_evalue
+    <hmm>_ec       The length of the DIAMOND blastx hit
+    <hmm>_gene             The percent ID of the DIAMOND blastx hit; could be used to increase post-processing stringency
     ec                         Enzyme Commission number from KEGG; semicolon delimited where multiple
     ko                         KEGG entry ID
     product                    KEGG gene ID <semicolon> KEGG product
@@ -468,41 +591,43 @@ contain:
 Function
 ````````
 
-Per function assignments in tables named **summaries/function/<type>.txt**
+Per function assignments in tables named **summaries/hmms_summary/<hmm>.txt**
 contain:
 
 .. table::
     :name: functiondeftable
 
-    ====================  ===================================================================
-    Header ID             Definition
-    ====================  ===================================================================
-    <type>                either KO, EC, or product into which counts have been summed
-    samples names         non-normalized, per sample sum for this particular functional group
-    level_1               KEGG hierarchy [level 1] if KO defined in first column
-    level_2               KEGG hierarchy [level 2] if KO defined in first column
-    level_3               KEGG hierarchy [level 3] if KO defined in first column
-    ====================  ===================================================================
+    ====================         ===================================================================
+    Header ID                    Definition
+    ====================         ===================================================================
+    <hmm>_ec                     either HAMAP,dbCAN or TIGRFAMs EC
+    <hmm>_gene                   either HAMAP,dbCAN or TIGRFAMs gene
+    <hmm>_product                either HAMAP,dbCAN or TIGRFAMs product
+    <hmm>_enzyme_class           dbcan only enzyme class descriptor
+    <hmm>_enzyme_class_subfamily dbcan only enzyme class subfamily descriptor
+    samples names                non-normalized, per sample sum for this particular functional group
+    ====================         ===================================================================
 
 Combined
 ````````
 
 Per taxonomy+function assignments in tables named
-**summaries/combined/<type>_<level>.txt** contain:
+**summaries/combined/<hmm>_<level>.txt** contain:
 
 .. table::
     :name: combineddeftable
 
-    ====================  ====================================================================
-    Header ID             Definition
-    ====================  ====================================================================
-    <type>                either KO, EC, or product; counts are summed using <type>+<taxonomy>
-    taxonomy_<level>      taxonomic level; counts are summed using <type>+<taxonomy>
-    sample names          non-normalized, per sample sum for this particular functional group
-    level_1               KEGG hierarchy [level 1] if KO defined in first column
-    level_2               KEGG hierarchy [level 2] if KO defined in first column
-    level_3               KEGG hierarchy [level 3] if KO defined in first column
-    ====================  ====================================================================
+    ====================         ====================================================================
+    Header ID                    Definition
+    ====================         ====================================================================
+    <hmm>_ec                     either HAMAP,dbCAN or TIGRFAMs EC
+    <hmm>_gene                   either HAMAP,dbCAN or TIGRFAMs gene
+    <hmm>_product                either HAMAP,dbCAN or TIGRFAMs product
+    <hmm>_enzyme_class           dbcan only enzyme class descriptor
+    <hmm>_enzyme_class_subfamily dbcan only enzyme class subfamily descriptor
+    taxonomy_<level>             taxonomic level; counts are summed using <hmm>+<taxonomy>
+    sample names                 non-normalized, per sample sum for this particular functional group
+    ====================         ====================================================================
 
 Downloads
 ---------
@@ -530,7 +655,7 @@ if __name__ == "__main__":
     p.add_argument("--r1-quality-files")
     p.add_argument("--html")
     p.add_argument("conda_env")
-    p.add_argument("function_table")
+    p.add_argument("taxonomy_table")
     p.add_argument("zipped_file")
     # p.add_argument("taxonomy_table")
     # p.add_argument("taxonomy_function_table")
@@ -545,7 +670,7 @@ if __name__ == "__main__":
         args.r1_quality_files,
         args.html,
         args.conda_env,
-        args.function_table,
+        args.taxonomy_table,
         args.zipped_file,
         # args.taxonomy_table,
         # args.taxonomy_function_table,

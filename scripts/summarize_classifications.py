@@ -57,71 +57,89 @@ FUNCTION_COLS = {
 #     logging.debug(f"Final table length: {len(df)}")
 #     return df
 
-def single_output(df,tax_level,samples,min_evlaue,min_score,min_len):
+def single_output(df,tax_level,samples,min_evalue,min_score,min_len,group_on,output):
     split_idx = TAX_LEVELS[tax_level]
-    group_one=["tigrfams","hamap","dbcan","kaiju"]
-    for item in group_one:
-        hmm_cols = df.filter(like=item).columns.values.tolist()
-        #TODO might not need
+    # group_one=["tigrfams","hamap","dbcan","kaiju"]
+    # for item in group_on
+    #test_df.head()
+    if "kaiju_taxonomy" in group_on:
+        hmm_cols = df.filter(like="kaiju").columns.values.tolist()
         test_df = df[hmm_cols+samples].copy()
-        if "kaiju" in item:
-            test_df = test_df[(df["kaiju_length"] > min_len)]
-            test_df["kaiju_taxonomy"] = df["kaiju_taxonomy"].apply(lambda x: "; ".join(x.split("; ", split_idx)[0:split_idx]))
-            test_df = test_df.drop(columns=["kaiju_length"]).groupby(["kaiju_taxonomy"]).sum(axis=1).reset_index()
-            test_df = test_df.rename(
-                columns={"kaiju_taxonomy": f"taxonomy_{tax_level}"}
-            )
-        else:
-            metric_cols = test_df.filter(items=[item+"_score",item+"_evalue"]).columns.values.tolist()
-            test_df = test_df[(test_df[item+"_score"] > min_score) & (test_df[item+"_evalue"] < min_evalue)]
-            test_df = test_df.drop(columns=metric_cols).groupby(hmm_cols[0:3]).sum(axis=1).reset_index().head()
-        test_df.to_csv(item+output, sep="\t", index=False)
-
-
-def combined_output(df,tax_level,samples,min_evalue,min_score,min_len):
-    split_idx = TAX_LEVELS[tax_level]
-    group_one=["tigrfams","hamap","dbcan"]
-    kaiju_cols = df.filter(like="kaiju").columns.values.tolist()
-    for item in group_one:
-        hmm_cols = df.filter(like=item).columns.values.tolist()
-        #TODO might not need
-        test_df = df[kaiju_cols+hmm_cols+samples].copy()
-        test_df = test_df[(df["kaiju_length"] > min_len) & (test_df[item+"_score"] > min_score) & (test_df[item+"_evalue"] < min_evalue)]
-        test_df["kaiju_taxonomy"] = df["kaiju_taxonomy"].apply(lambda x: "; ".join(x.split("; ", split_idx)[0:split_idx]))
-        metric_cols = test_df.filter(items=[item+"_score",item+"_evalue"]).columns.values.tolist()
-        metric_cols.append("kaiju_length")
-        test_df = test_df.drop(columns=metric_cols).groupby(["kaiju_taxonomy"]+hmm_cols[0:3]).sum(axis=1).reset_index()
+        test_df = test_df[(df["kaiju_length"] > min_len)]
+        test_df["kaiju_taxonomy"] = df["kaiju_taxonomy"].apply(lambda x: "; ".join(str(x).split("; ", split_idx)[0:split_idx]))
+        test_df = test_df.drop(columns=["kaiju_length"]).groupby(["kaiju_taxonomy"]).sum(axis=1).reset_index()
         test_df = test_df.rename(
             columns={"kaiju_taxonomy": f"taxonomy_{tax_level}"}
         )
-        test_df.to_csv("taxonomy_"+item, sep="\t", index=False)
-
-
-def main(output, table, tax_level, min_evalue, min_score, min_len):
-    df = pd.read_table(table)
-    # remove the rows w/ no information
-    df = df.query("kaiju_length != 0")
-    samples = df.filter(regex="[0-9]+").columns.values.tolist()
-    split_idx = TAX_LEVELS[tax_level]
-    group_one=["tigrfams","hamap","dbcan","kaiju"]
-    for item in group_one:
-        print(item)
-        use_these = df.filter(like=item).columns.values.tolist()
-        print(use_these)
+    else:
+        hmm_cols = df.filter(like=group_on[0].lower()).columns.values.tolist()
         #TODO might not need
-        test_df = df[use_these+samples].copy()
-        if "kaiju" in item:
-            test_df = test_df[(df["kaiju_length"] > min_len)]
-            test_df["kaiju_taxonomy"] = df["kaiju_taxonomy"].apply(lambda x: "; ".join(x.split("; ", split_idx)[0:split_idx]))
-            test_df = test_df.drop(columns=["kaiju_length"]).groupby(["kaiju_taxonomy"]).sum(axis=1).reset_index()
-            test_df = test_df.rename(
-                columns={"kaiju_taxonomy": f"taxonomy_{tax_level}"}
-            )
-        else:
-            metric_cols = test_df.filter(items=[item+"_score",item+"_evalue"]).columns.values.tolist()
-            test_df = test_df[(test_df[item+"_score"] > min_score) & (test_df[item+"_evalue"] < min_evalue)]
-            test_df = test_df.drop(columns=metric_cols).groupby(use_these[0:3]).sum(axis=1).reset_index().head()
-        test_df.to_csv(item+output, sep="\t", index=False)
+        test_df = df[hmm_cols+samples].copy()
+        metric_cols = test_df.filter(items=[group_on[0]+"_score",group_on[0]+"_evalue"]).columns.values.tolist()
+        test_df = test_df[(test_df[group_on[0].lower()+"_score"] > min_score) & (test_df[group_on[0].lower()+"_evalue"] < min_evalue)]
+        test_df = test_df.drop(columns=metric_cols).groupby(hmm_cols[0:3]).sum(axis=1).reset_index()
+    test_df.to_csv(output, sep="\t", index=False)
+
+
+def combined_output(df,tax_level,samples,min_evalue,min_score,min_len,group_on,output):
+    split_idx = TAX_LEVELS[tax_level]
+    # group_one=["tigrfams","hamap","dbcan"]
+    kaiju_cols = df.filter(like="kaiju").columns.values.tolist()
+    # for item in group_one:
+    hmm_cols = df.filter(like=group_on[0].lower()).columns.values.tolist()
+    print(samples)
+    print(group_on[0])
+    #TODO might not need
+    test_df = df[kaiju_cols+hmm_cols+samples].copy()
+    test_df = test_df[(df["kaiju_length"] > min_len) & (test_df[group_on[0].lower()+"_score"] > min_score) & (test_df[group_on[0].lower()+"_evalue"] < min_evalue)]
+    test_df["kaiju_taxonomy"] = df["kaiju_taxonomy"].apply(lambda x: "; ".join(str(x).split("; ", split_idx)[0:split_idx]))
+    metric_cols = test_df.filter(items=[group_on[0].lower()+"_score",group_on[0].lower()+"_evalue"]).columns.values.tolist()
+    print(metric_cols)
+    metric_cols.append("kaiju_length")
+    test_df = test_df.drop(columns=metric_cols).groupby(["kaiju_taxonomy"]+hmm_cols[0:3]).sum(axis=1).reset_index()
+    test_df = test_df.rename(
+        columns={"kaiju_taxonomy": f"taxonomy_{tax_level}"}
+    )
+    test_df.to_csv(output, sep="\t", index=False)
+
+
+def main(output, table, tax_level, min_evalue, min_score, min_len,group_on):
+    df = pd.read_table(table,low_memory=False)
+    col_names = [
+        "seq","kaiju_length","kaiju_taxonomy", "tigrfams_ec", "tigrfams_gene", "tigrfams_product",
+        "tigrfams_score", "tigrfams_evalue", "hamap_ec", "hamap_gene",
+        "hamap_product", "hamap_score", "hamap_evalue", "dbcan_ec",
+        "dbcan_enzyme_class", "dbcan_enzyme_class_subfamily","dbcan_score", "dbcan_evalue"
+    ]
+    # remove the rows w/ no information
+    # df = df.dropna(
+    # subset= col_names,
+    # thresh=2)
+    samples = [c for c in df.columns.values.tolist() if c not in col_names]
+    if len(group_on) > 1:
+        combined_output(df,tax_level,samples,min_evalue, min_score, min_len, group_on,output)
+    else:
+        single_output(df,tax_level,samples,min_evalue,min_score,min_len,group_on,output)
+    # split_idx = TAX_LEVELS[tax_level]
+    # group_one=["tigrfams","hamap","dbcan","kaiju"]
+    # for item in group_one:
+    #     print(item)
+    #     use_these = df.filter(like=item).columns.values.tolist()
+    #     print(use_these)
+    #     #TODO might not need
+    #     test_df = df[use_these+samples].copy()
+    #     if "kaiju" in item:
+    #         test_df = test_df[(df["kaiju_length"] > min_len)]
+    #         test_df["kaiju_taxonomy"] = df["kaiju_taxonomy"].apply(lambda x: "; ".join(x.split("; ", split_idx)[0:split_idx]))
+    #         test_df = test_df.drop(columns=["kaiju_length"]).groupby(["kaiju_taxonomy"]).sum(axis=1).reset_index()
+    #         test_df = test_df.rename(
+    #             columns={"kaiju_taxonomy": f"taxonomy_{tax_level}"}
+    #         )
+    #     else:
+    #         metric_cols = test_df.filter(items=[item+"_score",item+"_evalue"]).columns.values.tolist()
+    #         test_df = test_df[(test_df[item+"_score"] > min_score) & (test_df[item+"_evalue"] < min_evalue)]
+    #         test_df = test_df.drop(columns=metric_cols).groupby(use_these[0:3]).sum(axis=1).reset_index().head()
+    #     test_df.to_csv(item+output, sep="\t", index=False)
     # tax_split_level = TAX_LEVELS[tax_level]
     # sample_df = None
     # logging.debug(f"Preparing to parse {len(tables)} tables")
@@ -169,7 +187,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--min-evalue",
-        type=int,
+        type=float,
         default=0.001,
         help="lowest evalue to retain per sequence per sample",
     )
@@ -181,17 +199,17 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--min-len",
-        type=int,
+        type=float,
         default=0.001,
         help="minimum kaiju alignment length to retain",
     )
-    # parser.add_argument(
-    #     "--group-on",
-    #     # choices=["kaiju_classification", "ko", "ec", "product"],
-    #     nargs="+",
-    #     default="kaiju_taxonomy",
-    #     help="cluster tables on taxonomy and/or function; headers must match in tables",
-    # )
+    parser.add_argument(
+        "--group-on",
+        # choices=["kaiju_classification", "ko", "ec", "product"],
+        nargs="+",
+        default="kaiju_taxonomy",
+        help="cluster tables on taxonomy and/or function; headers must match in tables",
+    )
     parser.add_argument(
         "--verbose", action="store_true", help="increase output verbosity"
     )
@@ -205,5 +223,5 @@ if __name__ == "__main__":
         args.min_evalue,
         args.min_score,
         args.min_len,
-        # args.group_on,
+        args.group_on,
     )

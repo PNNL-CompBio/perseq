@@ -136,12 +136,12 @@ def get_summaries():
     hmm = ["TIGRFAMs","HAMAP","dbCAN"]
     taxonomy = ["phylum", "class", "order"]
     # code to generate the possible files
-    file_paths = expand("summaries/combined/{hmm}_{taxonomy}.txt",
-        hmm=hmm, taxonomy=taxonomy)
+    file_paths = expand("summaries/combined/{hmm}_{tax_classification}.txt",
+        hmm=hmm, tax_classification=taxonomy)
     file_paths.extend(expand("summaries/hmms_summary/{hmm}_summary.txt",
         hmm=hmm))
-    file_paths.extend(expand("summaries/taxonomy/{taxonomy}.txt",
-        taxonomy=taxonomy))
+    file_paths.extend(expand("summaries/taxonomy/{tax_classification}.txt",
+        tax_classification=taxonomy))
     return file_paths
 
 
@@ -493,7 +493,7 @@ rule split_fasta:
     input:
         fasta = "gene_catalog/clustered_genes.faa"
     output:
-        temp((dynamic("gene_catalog/tmp/clustered_genes_{chunk}.faa")))
+        dynamic("gene_catalog/tmp/clustered_genes_{chunk}.faa")
     params:
         # consider a smaller chunk size
         chunk_size = config.get("chunk_size", 1000000)
@@ -633,9 +633,23 @@ rule combine_sample_output:
         """
 
 
+rule remove_empty_annotations:
+    input:
+        annotations = "gene_catalog/annotations.txt"
+    output:
+        cleaned = "gene_catalog/annotations_cleaned.txt"
+    run:
+        with open(input.annotations) as file, open(output.cleaned,"w") as output:
+            header = next(file)
+            print(header.strip("\n"), file=output)
+            for line in file:
+                toks = line.strip("\r\n").split("\t")
+                if not all(s=='' for s in toks[2:12]):
+                    print(line.strip("\n"), file=output)
+
 rule build_hmms_table:
     input:
-        "gene_catalog/annotations.txt"
+        "gene_catalog/annotations_cleaned.txt"
     output:
         "summaries/hmms_summary/{hmm}_summary.txt"
     params:
@@ -657,7 +671,7 @@ rule build_hmms_table:
 
 rule build_tax_table:
     input:
-        "gene_catalog/annotations.txt"
+        "gene_catalog/annotations_cleaned.txt"
     output:
         "summaries/taxonomy/{tax_classification}.txt"
     params:
@@ -671,7 +685,7 @@ rule build_tax_table:
     shell:
         """
         python scripts/summarize_classifications.py \
-            --group-on kaiju_classification --min-evalue {params.min_evalue} \
+            --group-on kaiju_taxonomy --min-evalue {params.min_evalue} \
             --min-score {params.min_score} --min-len {params.min_len} \
             --tax-level {wildcards.tax_classification} {output} {input}
         """
@@ -679,7 +693,7 @@ rule build_tax_table:
 
 rule build_hmm_and_tax_table:
     input:
-        "gene_catalog/annotations.txt"
+        "gene_catalog/annotations_cleaned.txt"
     output:
         "summaries/combined/{hmm}_{tax_classification}.txt"
     params:
@@ -691,12 +705,12 @@ rule build_hmm_and_tax_table:
     shell:
         """
         python scripts/summarize_classifications.py \
-            --group-on {wildcards.hmm} kaiju_classification \
+            --group-on {wildcards.hmm} kaiju_taxonomy \
             --tax-level {wildcards.tax_classification} --min-evalue {params.min_evalue} \
-            --min-score {params.min_score}--min-len {params.min_len} {output} {input}
+            --min-score {params.min_score} --min-len {params.min_len} {output} {input}
         """
 
-## TODO fix this rule
+
 rule build_krona_ec_input:
     input:
         ec_file = "summaries/hmms_summary/TIGRFAMs_summary.txt",
@@ -743,30 +757,34 @@ rule build_krona_plots:
         """
 
 
-# rule zip_attachments:
-#     input:
-#         function = "summaries/function/ec.txt",
-#         taxonomy = "summaries/taxonomy/order.txt",
-#         krona_tax = "krona_plots/tax.krona.html",
-#         krona_ec = "krona_plots/ec.krona.html"
-#     output:
-#         temp("perseq_downloads.zip")
-#     shell:
-#         """
-#         zip {output} {input.function} {input.taxonomy} {input.combined}
-#         """
+rule zip_attachments:
+    input:
+        function = "summaries/hmms_summary/TIGRFAMs_summary.txt",
+        taxonomy = "summaries/taxonomy/order.txt",
+        combined = "summaries/combined/TIGRFAMs_order.txt",
+        krona_tax = "krona_plots/tax.krona.html",
+        krona_ec = "krona_plots/ec.krona.html"
+    output:
+        "perseq_downloads.tar.gz"
+    conda:
+        CONDAENV
+    shell:
+        """
+        tar -czf {output} {input.function} {input.taxonomy} {input.combined} \
+        {input.krona_tax} {input.krona_ec}
+        """
 
 
 rule build_report:
     input:
-        annotations = "gene_catalog/annotations.txt",
+        annotations = "gene_catalog/annotations_cleaned.txt",
         ee_stats = expand("logs/{sample}_{idx}_eestats.txt", sample=config["samples"].keys(), idx=["R1", "R2"]),
         clean_length_logs = expand("logs/{sample}_03_clean_readlengths.txt", sample=config["samples"].keys()),
         unique_length_logs = expand("logs/{sample}_02_unique_readlengths.txt", sample=config["samples"].keys()),
         clean_logs = expand("logs/{sample}_decontamination.log", sample=config["samples"].keys()),
         merge_logs = expand("logs/{sample}_merge_sequences.log", sample=config["samples"].keys()),
         taxonomy = "summaries/taxonomy/order.txt",
-        zipped_files = "perseq_downloads.zip"
+        zipped_files = "perseq_downloads.tar.gz"
     output:
         "summary.html"
     conda:
